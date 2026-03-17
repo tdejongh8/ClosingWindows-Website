@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClosingWindows — Aviation Tax Jurisdiction Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ─── CSS VARIABLES ───────────────────────────────────────────── */
+:root {
+  --bg:          #080C14;
+  --bg-2:        #0D1120;
+  --bg-card:     #111827;
+  --bg-card-2:   #0F1929;
+  --border:      rgba(255,255,255,0.07);
+  --border-glow: rgba(0,102,255,0.35);
+  --accent:      #0066FF;
+  --accent-dim:  rgba(0,102,255,0.15);
+  --accent-glow: rgba(0,102,255,0.4);
+  --amber:       #F5A623;
+  --amber-dim:   rgba(245,166,35,0.15);
+  --green:       #00B458;
+  --green-dim:   rgba(0,180,88,0.15);
+  --red:         #FF3B5C;
+  --text-1:      #F0F4FF;
+  --text-2:      #8A9BBF;
+  --text-3:      #4A5880;
+  --mono:        'JetBrains Mono', monospace;
+  --sans:        'Inter', sans-serif;
+  --radius:      8px;
+  --radius-lg:   16px;
+}
+
+/* ─── RESET & BASE ────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+img { max-width: 100%; }
+
+/* ─── GRID BACKGROUND ─────────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,102,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,102,255,0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── UTILITIES ───────────────────────────────────────────────── */
+.container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.mono { font-family: var(--mono); }
+.accent { color: var(--accent); }
+.amber { color: var(--amber); }
+.green { color: var(--green); }
+.tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--accent); background: var(--accent-dim);
+  border: 1px solid rgba(0,102,255,0.3);
+  padding: 4px 12px; border-radius: 4px;
+}
+.tag::before { content: '//'; opacity: 0.6; }
+
+/* ─── NAVIGATION ──────────────────────────────────────────────── */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  backdrop-filter: blur(20px) saturate(1.5);
+  background: rgba(8,12,20,0.85);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px; padding: 0 24px; max-width: 1280px; margin: 0 auto;
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 12px;
+  font-family: var(--sans); font-size: 18px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.nav-logo img { height: 32px; width: 32px; object-fit: contain; }
+.nav-logo .logo-icon {
+  width: 32px; height: 32px; flex-shrink: 0;
+}
+.nav-links {
+  display: flex; align-items: center; gap: 32px;
+  list-style: none;
+}
+.nav-links a {
+  font-size: 13px; font-weight: 500; color: var(--text-2);
+  letter-spacing: 0.03em; transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--text-1); }
+.nav-cta {
+  display: flex; align-items: center; gap: 16px;
+}
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--sans); font-size: 13px; font-weight: 600;
+  letter-spacing: 0.04em; padding: 9px 20px; border-radius: var(--radius);
+  cursor: pointer; transition: all 0.2s; border: none;
+}
+.btn-ghost {
+  background: transparent; color: var(--text-2);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { color: var(--text-1); border-color: rgba(255,255,255,0.2); }
+.btn-primary {
+  background: var(--accent); color: #fff;
+  box-shadow: 0 0 20px rgba(0,102,255,0.35);
+}
+.btn-primary:hover {
+  background: #1a7aff;
+  box-shadow: 0 0 32px rgba(0,102,255,0.55);
+  transform: translateY(-1px);
+}
+.btn-lg { font-size: 14px; padding: 13px 28px; border-radius: 10px; }
+
+/* ─── HERO ────────────────────────────────────────────────────── */
+.hero {
+  position: relative; padding: 160px 0 100px;
+  overflow: hidden;
+}
+.hero-glow {
+  position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
+  width: 800px; height: 800px; border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(0,102,255,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-content {
+  position: relative; z-index: 1;
+  max-width: 760px; margin: 0 auto; text-align: center;
+}
+.hero-eyebrow {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin-bottom: 28px;
+}
+.hero-eyebrow .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--green); }
+  50% { opacity: 0.6; box-shadow: 0 0 14px var(--green); }
+}
+.hero-eyebrow span {
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+  color: var(--green); letter-spacing: 0.12em; text-transform: uppercase;
+}
+.hero h1 {
+  font-size: clamp(40px, 6vw, 72px); font-weight: 800;
+  line-height: 1.05; letter-spacing: -0.03em;
+  color: var(--text-1); margin-bottom: 24px;
+}
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero-sub {
+  font-size: 18px; font-weight: 400; line-height: 1.65;
+  color: var(--text-2); max-width: 560px; margin: 0 auto 40px;
+}
+.hero-actions {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  flex-wrap: wrap;
+}
+.hero-stats {
+  display: flex; align-items: center; justify-content: center;
+  gap: 40px; margin-top: 56px; padding-top: 40px;
+  border-top: 1px solid var(--border);
+}
+.stat-item { text-align: center; }
+.stat-num {
+  display: block; font-size: 28px; font-weight: 800; color: var(--text-1);
+  font-family: var(--mono); letter-spacing: -0.03em;
+}
+.stat-label {
+  display: block; font-size: 12px; color: var(--text-3);
+  letter-spacing: 0.05em; margin-top: 2px;
+}
+
+/* ─── DASHBOARD MOCKUP ────────────────────────────────────────── */
+.mockup-wrap {
+  position: relative; max-width: 1100px; margin: 72px auto 0;
+  padding: 0 24px;
+}
+.mockup-glow-ring {
+  position: absolute; inset: -40px; border-radius: 24px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(0,102,255,0.15) 0%, transparent 65%);
+  pointer-events: none;
+}
+.mockup-frame {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(0,102,255,0.1), 0 60px 120px rgba(0,0,0,0.6);
+}
+.mockup-titlebar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--border);
+}
+.titlebar-dots { display: flex; gap: 6px; }
+.titlebar-dots span {
+  width: 10px; height: 10px; border-radius: 50%;
+}
+.td1 { background: #FF5F57; }
+.td2 { background: #FEBC2E; }
+.td3 { background: #28C840; }
+.titlebar-url {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+}
+.titlebar-url span {
+  font-family: var(--mono); font-size: 11px; color: var(--text-3);
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  padding: 3px 14px; border-radius: 4px;
+}
+.mockup-body {
+  display: grid; grid-template-columns: 220px 1fr;
+  min-height: 520px;
+}
+.mockup-sidebar {
+  background: rgba(0,0,0,0.2);
+  border-right: 1px solid var(--border);
+  padding: 20px 0;
+}
+.sidebar-logo {
+  padding: 4px 20px 20px;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-section { padding: 16px 0 8px; }
+.sidebar-label {
+  font-family: var(--mono); font-size: 9px; font-weight: 600;
+  color: var(--text-3); letter-spacing: 0.15em; text-transform: uppercase;
+  padding: 0 20px 8px;
+}
+.sidebar-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 20px; font-size: 12px; font-weight: 500;
+  color: var(--text-2); cursor: pointer; transition: all 0.15s;
+}
+.sidebar-item.active {
+  color: var(--text-1); background: var(--accent-dim);
+  border-right: 2px solid var(--accent);
+}
+.sidebar-item:hover:not(.active) { color: var(--text-1); background: rgba(255,255,255,0.03); }
+.sidebar-icon { width: 14px; height: 14px; opacity: 0.7; flex-shrink: 0; }
+.sidebar-badge {
+  margin-left: auto; font-family: var(--mono); font-size: 9px;
+  background: var(--accent-dim); color: var(--accent);
+  border: 1px solid rgba(0,102,255,0.3); padding: 1px 6px; border-radius: 3px;
+}
+.mockup-main { padding: 20px 24px; overflow: hidden; }
+.mockup-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;
+}
+.mockup-title { font-size: 14px; font-weight: 700; }
+.mockup-subtitle { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+.mockup-actions { display: flex; gap: 8px; }
+.mini-btn {
+  font-family: var(--mono); font-size: 10px; font-weight: 500;
+  padding: 5px 12px; border-radius: 4px; cursor: pointer;
+  background: var(--accent-dim); color: var(--accent);
+  border: 1px solid rgba(0,102,255,0.3);
+}
+.mini-btn-ghost {
+  background: transparent; color: var(--text-3);
+  border: 1px solid var(--border);
+}
+.kpi-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;
+}
+.kpi-card {
+  background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 14px;
+}
+.kpi-label { font-size: 10px; color: var(--text-3); letter-spacing: 0.05em; margin-bottom: 6px; }
+.kpi-val { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--text-1); }
+.kpi-delta { font-family: var(--mono); font-size: 9px; margin-top: 3px; }
+.kpi-delta.up { color: var(--green); }
+.kpi-delta.warn { color: var(--amber); }
+.data-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.data-table th {
+  text-align: left; font-family: var(--mono); font-size: 9px; font-weight: 600;
+  color: var(--text-3); letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 0 12px 8px; border-bottom: 1px solid var(--border);
+}
+.data-table td {
+  padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-family: var(--mono); font-size: 11px; color: var(--text-2);
+  white-space: nowrap;
+}
+.data-table tr:hover td { background: rgba(255,255,255,0.02); }
+.data-table .tail { color: var(--text-1); font-weight: 700; }
+.status-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-size: 9px; font-weight: 600;
+  padding: 2px 8px; border-radius: 3px; letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.status-pill .dot-s { width: 5px; height: 5px; border-radius: 50%; }
+.pill-green { background: var(--green-dim); color: var(--green); }
+.pill-green .dot-s { background: var(--green); }
+.pill-amber { background: var(--amber-dim); color: var(--amber); }
+.pill-amber .dot-s { background: var(--amber); }
+.pill-blue { background: var(--accent-dim); color: var(--accent); }
+.pill-blue .dot-s { background: var(--accent); }
+.pill-red { background: rgba(255,59,92,0.12); color: var(--red); }
+.pill-red .dot-s { background: var(--red); }
+
+/* ─── MAP MINI ────────────────────────────────────────────────── */
+.map-mini {
+  position: relative; height: 140px; margin-top: 16px;
+  background: #070E1A; border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden;
+}
+.map-mini svg { width: 100%; height: 100%; }
+
+/* ─── PROBLEM SECTION ─────────────────────────────────────────── */
+.section { position: relative; padding: 100px 0; }
+.section-header { text-align: center; max-width: 600px; margin: 0 auto 64px; }
+.section-header h2 {
+  font-size: clamp(28px, 4vw, 44px); font-weight: 800;
+  line-height: 1.1; letter-spacing: -0.03em; margin: 16px 0 16px;
+}
+.section-header p { font-size: 17px; color: var(--text-2); line-height: 1.65; }
+.problem-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+}
+.problem-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 32px;
+  transition: border-color 0.3s, transform 0.3s;
+  position: relative; overflow: hidden;
+}
+.problem-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--amber), transparent);
+  opacity: 0; transition: opacity 0.3s;
+}
+.problem-card:hover { border-color: rgba(245,166,35,0.3); transform: translateY(-3px); }
+.problem-card:hover::before { opacity: 1; }
+.problem-num {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  color: var(--text-3); letter-spacing: 0.1em; margin-bottom: 20px;
+}
+.problem-card h3 {
+  font-size: 18px; font-weight: 700; line-height: 1.3;
+  margin-bottom: 12px; color: var(--text-1);
+}
+.problem-card p { font-size: 14px; color: var(--text-2); line-height: 1.65; }
+.problem-card .pain-tag {
+  display: inline-block; margin-top: 20px;
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  color: var(--amber); background: var(--amber-dim);
+  border: 1px solid rgba(245,166,35,0.25); padding: 3px 10px; border-radius: 3px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+
+/* ─── FEATURES SECTION ────────────────────────────────────────── */
+.features-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px;
+}
+.feature-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 36px;
+  display: grid; grid-template-columns: 56px 1fr; gap: 24px; align-items: start;
+  transition: border-color 0.3s, transform 0.3s;
+}
+.feature-card:hover { border-color: var(--border-glow); transform: translateY(-2px); }
+.feature-icon {
+  width: 56px; height: 56px; border-radius: 12px;
+  background: var(--accent-dim); border: 1px solid rgba(0,102,255,0.2);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.feature-icon svg { width: 26px; height: 26px; color: var(--accent); }
+.feature-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+.feature-card p { font-size: 14px; color: var(--text-2); line-height: 1.65; }
+.feature-card .feature-detail {
+  margin-top: 16px; padding: 12px 14px; border-radius: 6px;
+  background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+  font-family: var(--mono); font-size: 11px; color: var(--text-3);
+}
+.feature-card .feature-detail span { color: var(--accent); }
+
+/* ─── DASHBOARD SECTION ───────────────────────────────────────── */
+.dash-section {
+  background: linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 50%, var(--bg) 100%);
+}
+.dash-container {
+  max-width: 1140px; margin: 0 auto; padding: 0 24px;
+}
+.full-mockup {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(0,102,255,0.08), 0 40px 80px rgba(0,0,0,0.5);
+}
+.fm-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 24px; border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+}
+.fm-tabs { display: flex; gap: 0; }
+.fm-tab {
+  font-size: 12px; font-weight: 500; padding: 6px 18px;
+  border-radius: 4px; color: var(--text-3); cursor: pointer;
+  transition: all 0.15s;
+}
+.fm-tab.active {
+  color: var(--text-1); background: var(--accent-dim);
+  border: 1px solid rgba(0,102,255,0.25);
+}
+.fm-controls { display: flex; gap: 8px; align-items: center; }
+.fm-search {
+  font-family: var(--mono); font-size: 11px; color: var(--text-3);
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  border-radius: 4px; padding: 5px 12px 5px 28px; outline: none;
+  width: 180px; position: relative;
+}
+.search-wrap { position: relative; }
+.search-wrap svg {
+  position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+  width: 12px; height: 12px; color: var(--text-3); pointer-events: none;
+}
+.fm-table { width: 100%; border-collapse: collapse; }
+.fm-table th {
+  text-align: left; font-family: var(--mono); font-size: 9px; font-weight: 600;
+  color: var(--text-3); letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.01);
+}
+.fm-table th:first-child { padding-left: 24px; }
+.fm-table td {
+  padding: 13px 16px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-family: var(--mono); font-size: 12px; color: var(--text-2);
+}
+.fm-table td:first-child { padding-left: 24px; }
+.fm-table tr:hover td { background: rgba(0,102,255,0.04); }
+.fm-table .tail-num { color: var(--text-1); font-weight: 700; font-size: 13px; }
+.fm-table .days-val { color: var(--amber); font-weight: 600; }
+.fm-table .reg { color: var(--text-3); font-size: 10px; }
+.fm-table .airport { color: var(--text-1); }
+.fm-table .juris { display: flex; align-items: center; gap: 6px; }
+.fm-table .flag { font-size: 14px; }
+.fm-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 24px; border-top: 1px solid var(--border);
+  font-family: var(--mono); font-size: 10px; color: var(--text-3);
+  background: rgba(255,255,255,0.01);
+}
+.fm-footer .showing { color: var(--text-3); }
+.fm-footer .last-sync { display: flex; align-items: center; gap: 6px; }
+.fm-footer .sync-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
+
+/* ─── TRUST SECTION ───────────────────────────────────────────── */
+.trust-section { padding: 80px 0; border-top: 1px solid var(--border); }
+.trust-label {
+  text-align: center; font-family: var(--mono); font-size: 10px;
+  color: var(--text-3); letter-spacing: 0.15em; text-transform: uppercase;
+  margin-bottom: 40px;
+}
+.trust-logos {
+  display: flex; align-items: center; justify-content: center; gap: 48px;
+  flex-wrap: wrap;
+}
+.trust-logo {
+  font-family: var(--sans); font-size: 14px; font-weight: 700;
+  color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase;
+  opacity: 0.5; transition: opacity 0.2s;
+}
+.trust-logo:hover { opacity: 0.9; }
+.trust-logo sub { font-size: 9px; font-weight: 400; opacity: 0.7; }
+
+/* ─── TESTIMONIAL ─────────────────────────────────────────────── */
+.testimonial-wrap {
+  max-width: 700px; margin: 60px auto 0;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 40px 48px;
+  position: relative;
+}
+.testimonial-wrap::before {
+  content: '"'; position: absolute; top: 24px; left: 36px;
+  font-size: 80px; line-height: 1; color: var(--accent); opacity: 0.2;
+  font-family: Georgia, serif;
+}
+.testimonial-text {
+  font-size: 17px; line-height: 1.7; color: var(--text-1);
+  font-weight: 400; margin-bottom: 24px; padding-top: 8px;
+}
+.testimonial-author {
+  display: flex; align-items: center; gap: 14px;
+}
+.author-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-dim), rgba(0,102,255,0.3));
+  border: 1px solid rgba(0,102,255,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; color: var(--accent);
+}
+.author-name { font-size: 13px; font-weight: 600; }
+.author-title { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+
+/* ─── PRICING ─────────────────────────────────────────────────── */
+.pricing-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px;
+  max-width: 840px; margin: 0 auto;
+}
+.pricing-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 40px;
+  transition: border-color 0.3s;
+}
+.pricing-card.featured {
+  border-color: rgba(0,102,255,0.4);
+  background: linear-gradient(160deg, #0D1627 0%, var(--bg-card) 100%);
+  box-shadow: 0 0 40px rgba(0,102,255,0.12);
+}
+.pricing-tier {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  color: var(--text-3); letter-spacing: 0.15em; text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.pricing-card.featured .pricing-tier { color: var(--accent); }
+.pricing-price {
+  font-size: 40px; font-weight: 800; letter-spacing: -0.04em;
+  margin-bottom: 4px;
+}
+.pricing-price sub {
+  font-size: 15px; font-weight: 400; color: var(--text-3);
+  letter-spacing: 0; vertical-align: baseline;
+}
+.pricing-period { font-size: 13px; color: var(--text-3); margin-bottom: 28px; }
+.pricing-divider {
+  height: 1px; background: var(--border); margin-bottom: 28px;
+}
+.pricing-features { list-style: none; margin-bottom: 36px; }
+.pricing-features li {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 14px; color: var(--text-2); padding: 6px 0;
+}
+.pricing-features li::before {
+  content: '✓'; font-family: var(--mono); font-size: 11px;
+  color: var(--green); font-weight: 700; margin-top: 2px; flex-shrink: 0;
+}
+.pricing-features li.muted { color: var(--text-3); }
+.pricing-features li.muted::before { color: var(--text-3); content: '—'; }
+.pricing-note { font-size: 12px; color: var(--text-3); margin-top: 12px; }
+
+/* ─── FINAL CTA ───────────────────────────────────────────────── */
+.final-cta {
+  padding: 120px 0;
+  text-align: center;
+  position: relative; overflow: hidden;
+}
+.final-cta::before {
+  content: '';
+  position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 600px; height: 400px;
+  background: radial-gradient(ellipse, rgba(0,102,255,0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+.final-cta h2 {
+  font-size: clamp(32px, 5vw, 56px); font-weight: 800;
+  line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 20px;
+}
+.final-cta p {
+  font-size: 17px; color: var(--text-2); max-width: 480px;
+  margin: 0 auto 40px; line-height: 1.65;
+}
+.final-cta .cta-disclaimer {
+  font-family: var(--mono); font-size: 11px; color: var(--text-3);
+  margin-top: 20px; letter-spacing: 0.05em;
+}
+
+/* ─── FOOTER ──────────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 48px 0 36px;
+}
+.footer-inner {
+  display: grid; grid-template-columns: 240px 1fr; gap: 60px;
+  max-width: 1200px; margin: 0 auto; padding: 0 24px;
+}
+.footer-brand p {
+  font-size: 13px; color: var(--text-3); line-height: 1.65; margin-top: 12px;
+}
+.footer-nav {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px;
+}
+.footer-col-title {
+  font-family: var(--mono); font-size: 9px; font-weight: 600;
+  color: var(--text-3); letter-spacing: 0.15em; text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.footer-links { list-style: none; }
+.footer-links li { margin-bottom: 10px; }
+.footer-links a {
+  font-size: 13px; color: var(--text-2); transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--text-1); }
+.footer-bottom {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 24px 24px 0; max-width: 1200px; margin: 0 auto;
+  border-top: 1px solid var(--border); margin-top: 40px;
+}
+.footer-bottom p {
+  font-family: var(--mono); font-size: 10px; color: var(--text-3);
+  letter-spacing: 0.05em;
+}
+.footer-coords {
+  font-family: var(--mono); font-size: 10px; color: var(--text-3);
+}
+
+/* ─── ANIMATIONS ──────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; } to { opacity: 1; }
+}
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes scanline {
+  0% { top: -10%; }
+  100% { top: 110%; }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; } 50% { opacity: 0; }
+}
+.fade-up { animation: fadeUp 0.7s ease both; }
+.fade-up-1 { animation-delay: 0.1s; }
+.fade-up-2 { animation-delay: 0.2s; }
+.fade-up-3 { animation-delay: 0.3s; }
+.fade-up-4 { animation-delay: 0.4s; }
+.fade-up-5 { animation-delay: 0.5s; }
+
+/* ─── TICKER BAR ──────────────────────────────────────────────── */
+.ticker-bar {
+  background: rgba(0,0,0,0.4); border-bottom: 1px solid var(--border);
+  overflow: hidden; position: relative; height: 32px;
+  margin-top: 64px;
+}
+.ticker-track {
+  display: flex; align-items: center; height: 100%;
+  animation: ticker 40s linear infinite;
+  width: max-content;
+}
+.ticker-item {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 10px; color: var(--text-3);
+  padding: 0 32px; border-right: 1px solid var(--border); white-space: nowrap;
+}
+.ticker-item .t-tail { color: var(--text-1); font-weight: 700; }
+.ticker-item .t-status.green { color: var(--green); }
+.ticker-item .t-status.amber { color: var(--amber); }
+
+/* ─── COORD OVERLAY ───────────────────────────────────────────── */
+.coord-display {
+  position: absolute; bottom: 16px; right: 16px;
+  font-family: var(--mono); font-size: 9px; color: var(--text-3);
+  background: rgba(0,0,0,0.6); padding: 6px 10px; border-radius: 4px;
+  border: 1px solid var(--border); line-height: 1.8;
+}
+
+/* ─── RESPONSIVE ──────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .mockup-body { grid-template-columns: 1fr; }
+  .mockup-sidebar { display: none; }
+  .problem-grid { grid-template-columns: 1fr; }
+  .features-grid { grid-template-columns: 1fr; }
+  .pricing-grid { grid-template-columns: 1fr; }
+  .footer-inner { grid-template-columns: 1fr; gap: 40px; }
+  .footer-nav { grid-template-columns: repeat(2, 1fr); }
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .hero-stats { gap: 24px; }
+}
+@media (max-width: 640px) {
+  .nav-links { display: none; }
+  .hero { padding: 120px 0 80px; }
+  .trust-logos { gap: 24px; }
+  .footer-nav { grid-template-columns: 1fr; }
+  .footer-bottom { flex-direction: column; gap: 8px; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<!-- ─── NAV ──────────────────────────────────────────────────────── -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">
+      <!-- Inline SVG logo (airplane in shield) -->
+      <svg class="logo-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 2C10 2 4 7 4 16C4 22 8.5 28 16 30C23.5 28 28 22 28 16C28 7 22 2 16 2Z" fill="#1a2540"/>
+        <path d="M16 3C10.5 3 5 7.8 5 16C5 21.8 9.2 27.5 16 29.3C22.8 27.5 27 21.8 27 16C27 7.8 21.5 3 16 3Z" fill="#111827"/>
+        <path d="M8.5 17.5L11.5 14L18 13.5L22.5 10.5C23 10.2 23.8 10.5 23.5 11.2L20.5 16L14.5 17L12 20.5L11 20L12.5 17.5L10 17.8L8.8 19.2L8.2 18.8L9 17.5H8.5Z" fill="white"/>
+        <path d="M11.5 20L12 20.5" stroke="white" stroke-width="0.5"/>
+      </svg>
+      <span>Closing<span class="accent">Windows</span></span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#dashboard">Dashboard</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#" style="color:var(--text-3)">Docs</a></li>
+    </ul>
+    <div class="nav-cta">
+      <a href="#" class="btn btn-ghost">Sign In</a>
+      <a href="#pricing" class="btn btn-primary">Request Access →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── TICKER BAR ─────────────────────────────────────────────── -->
+<div class="ticker-bar" style="margin-top:64px">
+  <div class="ticker-track" id="ticker">
+    <!-- populated by JS -->
+  </div>
+</div>
+
+<!-- ─── HERO ──────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="container">
+    <div class="hero-content">
+      <div class="hero-eyebrow fade-up">
+        <span class="dot"></span>
+        <span>Aviation Tax Jurisdiction Platform · v2.4</span>
+      </div>
+      <h1 class="fade-up fade-up-1">
+        Know exactly where<br>your aircraft <em>will be.</em>
+      </h1>
+      <p class="hero-sub fade-up fade-up-2">
+        Real-time aircraft movement tracking built for aviation finance. Map tax jurisdictions, flag compliance windows, and produce audit-ready reports — without the guesswork.
+      </p>
+      <div class="hero-actions fade-up fade-up-3">
+        <a href="#pricing" class="btn btn-primary btn-lg">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          Request Access
+        </a>
+        <a href="test.html" class="btn btn-ghost btn-lg">View Live Demo</a>
+      </div>
+      <div class="hero-stats fade-up fade-up-4">
+        <div class="stat-item">
+          <span class="stat-num" data-target="12400">0</span>
+          <span class="stat-label">Movements tracked / day</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-num" data-target="183">0</span>
+          <span class="stat-label">Jurisdictions mapped</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-num" data-target="99.97">0</span>
+          <span class="stat-label">Data uptime %</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-num" data-target="4200">0</span>
+          <span class="stat-label">Aircraft monitored</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard mockup -->
+  <div class="mockup-wrap fade-up fade-up-5">
+    <div class="mockup-glow-ring"></div>
+    <div class="mockup-frame">
+      <div class="mockup-titlebar">
+        <div class="titlebar-dots">
+          <span class="td1"></span><span class="td2"></span><span class="td3"></span>
+        </div>
+        <div class="titlebar-url">
+          <span>app.closingwindows.com / fleet / N-KGRP</span>
+        </div>
+        <div style="width:60px"></div>
+      </div>
+      <div class="mockup-body">
+        <div class="mockup-sidebar">
+          <div class="sidebar-logo">
+            Closing<span class="accent">Windows</span>
+          </div>
+          <div class="sidebar-section">
+            <div class="sidebar-label">Navigation</div>
+            <div class="sidebar-item active">
+              <svg class="sidebar-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>
+              Fleet Overview
+              <span class="sidebar-badge">4</span>
+            </div>
+            <div class="sidebar-item">
+              <svg class="sidebar-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5"/><path d="M8 3v5l3 2"/></svg>
+              Movement Log
+            </div>
+            <div class="sidebar-item">
+              <svg class="sidebar-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12l3-3 3 3 4-5"/></svg>
+              Tax Jurisdictions
+            </div>
+            <div class="sidebar-item">
+              <svg class="sidebar-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M5 7h6M5 9.5h4"/></svg>
+              Reports
+              <span class="sidebar-badge" style="color:var(--amber);border-color:rgba(245,166,35,0.3);background:var(--amber-dim)">2</span>
+            </div>
+          </div>
+          <div class="sidebar-section">
+            <div class="sidebar-label">Settings</div>
+            <div class="sidebar-item">
+              <svg class="sidebar-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 2v1.5M8 12.5V14M14 8h-1.5M3.5 8H2M11.7 4.3l-1 1M5.3 10.7l-1 1M11.7 11.7l-1-1M5.3 5.3l-1-1"/></svg>
+              Preferences
+            </div>
+          </div>
+        </div>
+        <div class="mockup-main">
+          <div class="mockup-header">
+            <div>
+              <div class="mockup-title">Fleet Overview — <span class="mono accent">N-KGRP</span></div>
+              <div class="mockup-subtitle">4 aircraft · Tax year 2025 · USD jurisdiction</div>
+            </div>
+            <div class="mockup-actions">
+              <div class="mini-btn mini-btn-ghost">Export PDF</div>
+              <div class="mini-btn">+ Add Aircraft</div>
+            </div>
+          </div>
+          <div class="kpi-row">
+            <div class="kpi-card">
+              <div class="kpi-label">ACTIVE MOVEMENTS</div>
+              <div class="kpi-val accent">3</div>
+              <div class="kpi-delta up">↑ 1 since yesterday</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">US DAYS REMAINING</div>
+              <div class="kpi-val">127</div>
+              <div class="kpi-delta up">of 183 threshold</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">FLAGGED EVENTS</div>
+              <div class="kpi-val" style="color:var(--amber)">2</div>
+              <div class="kpi-delta warn">⚠ Review required</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">LAST SYNC</div>
+              <div class="kpi-val" style="font-size:15px;color:var(--green)">Live</div>
+              <div class="kpi-delta up">ADS-B · 38s ago</div>
+            </div>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Tail #</th>
+                <th>Type</th>
+                <th>Last Airport</th>
+                <th>Jurisdiction</th>
+                <th>Days (YTD)</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="tail">N-817CW</td>
+                <td>G650ER</td>
+                <td>KTEB → EGLL</td>
+                <td>🇬🇧 UK</td>
+                <td>43</td>
+                <td><span class="status-pill pill-green"><span class="dot-s"></span>Compliant</span></td>
+              </tr>
+              <tr>
+                <td class="tail">VP-BCX4</td>
+                <td>Global 7500</td>
+                <td>OMDB → WSSS</td>
+                <td>🇸🇬 SG</td>
+                <td>91</td>
+                <td><span class="status-pill pill-amber"><span class="dot-s"></span>Near Limit</span></td>
+              </tr>
+              <tr>
+                <td class="tail">M-AVIA</td>
+                <td>Falcon 8X</td>
+                <td>LFPB → LSGG</td>
+                <td>🇨🇭 CH</td>
+                <td>28</td>
+                <td><span class="status-pill pill-green"><span class="dot-s"></span>Compliant</span></td>
+              </tr>
+              <tr>
+                <td class="tail">OE-LCW</td>
+                <td>ACJ320neo</td>
+                <td>LOWW → KJFK</td>
+                <td>🇺🇸 US</td>
+                <td>127</td>
+                <td><span class="status-pill pill-red"><span class="dot-s"></span>Review</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="map-mini" style="position:relative">
+            <svg viewBox="0 0 900 140" preserveAspectRatio="xMidYMid slice">
+              <!-- Grid lines -->
+              <defs>
+                <radialGradient id="glowBlue" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#0066FF" stop-opacity="0.8"/>
+                  <stop offset="100%" stop-color="#0066FF" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <g stroke="rgba(255,255,255,0.04)" stroke-width="0.5">
+                <line x1="0" y1="35" x2="900" y2="35"/>
+                <line x1="0" y1="70" x2="900" y2="70"/>
+                <line x1="0" y1="105" x2="900" y2="105"/>
+                <line x1="150" y1="0" x2="150" y2="140"/>
+                <line x1="300" y1="0" x2="300" y2="140"/>
+                <line x1="450" y1="0" x2="450" y2="140"/>
+                <line x1="600" y1="0" x2="600" y2="140"/>
+                <line x1="750" y1="0" x2="750" y2="140"/>
+              </g>
+              <!-- Flight paths -->
+              <path d="M 80 45 Q 250 20 420 55" stroke="#0066FF" stroke-width="1.5" fill="none" stroke-dasharray="4 3" opacity="0.7"/>
+              <path d="M 520 90 Q 680 30 820 60" stroke="#00B458" stroke-width="1.5" fill="none" stroke-dasharray="4 3" opacity="0.7"/>
+              <path d="M 200 110 Q 350 70 500 85" stroke="#F5A623" stroke-width="1.5" fill="none" stroke-dasharray="4 3" opacity="0.5"/>
+              <!-- Airport dots -->
+              <circle cx="80" cy="45" r="3" fill="#0066FF"/>
+              <circle cx="420" cy="55" r="3" fill="#0066FF"/>
+              <circle cx="520" cy="90" r="3" fill="#00B458"/>
+              <circle cx="820" cy="60" r="3" fill="#00B458"/>
+              <circle cx="200" cy="110" r="3" fill="#F5A623"/>
+              <circle cx="500" cy="85" r="3" fill="#F5A623"/>
+              <!-- Aircraft position (animated) -->
+              <circle cx="250" cy="32" r="4" fill="#0066FF" opacity="0.9">
+                <animate attributeName="cx" values="80;420" dur="8s" repeatCount="indefinite"/>
+                <animate attributeName="cy" values="45;55" dur="8s" repeatCount="indefinite" keySplines="0.4 0 0.6 1" calcMode="spline"/>
+              </circle>
+              <circle cx="670" cy="45" r="4" fill="#00B458" opacity="0.9">
+                <animate attributeName="cx" values="520;820" dur="6s" repeatCount="indefinite"/>
+                <animate attributeName="cy" values="90;60" dur="6s" repeatCount="indefinite"/>
+              </circle>
+              <!-- Labels -->
+              <text x="72" y="38" font-family="JetBrains Mono, monospace" font-size="7" fill="rgba(255,255,255,0.5)">KTEB</text>
+              <text x="413" y="48" font-family="JetBrains Mono, monospace" font-size="7" fill="rgba(255,255,255,0.5)">EGLL</text>
+              <text x="512" y="83" font-family="JetBrains Mono, monospace" font-size="7" fill="rgba(255,255,255,0.5)">OMDB</text>
+              <text x="813" y="53" font-family="JetBrains Mono, monospace" font-size="7" fill="rgba(255,255,255,0.5)">WSSS</text>
+            </svg>
+            <div class="coord-display">
+              LAT <span style="color:var(--accent)">51.4775°N</span> · LON <span style="color:var(--accent)">000.4614°W</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── PROBLEM SECTION ────────────────────────────────────────── -->
+<section class="section" id="problem">
+  <div class="container">
+    <div class="section-header">
+      <span class="tag">The Problem</span>
+      <h2>Aviation tax is complex.<br>Your tools shouldn't be.</h2>
+      <p>Finance professionals managing aircraft portfolios face a patchwork of jurisdiction rules, threshold calculations, and reporting requirements — often tracked in spreadsheets.</p>
+    </div>
+    <div class="problem-grid">
+      <div class="problem-card">
+        <div class="problem-num">01 / 03</div>
+        <h3>Jurisdiction Uncertainty</h3>
+        <p>Tax residency rules vary by flight hours, days on ground, and treaty status. Manually tracking which jurisdiction applies — and when thresholds are near — is error-prone and time-consuming.</p>
+        <span class="pain-tag">High Risk</span>
+      </div>
+      <div class="problem-card">
+        <div class="problem-num">02 / 03</div>
+        <h3>Fragmented Data Sources</h3>
+        <p>ADS-B feeds, FBO records, flight logs, and customs data live in separate systems. Cross-referencing them for audit purposes requires hours of manual reconciliation per aircraft.</p>
+        <span class="pain-tag">Time Drain</span>
+      </div>
+      <div class="problem-card">
+        <div class="problem-num">03 / 03</div>
+        <h3>Missed Closing Windows</h3>
+        <p>The window to reposition an aircraft before a tax trigger closes fast. Without automated alerts and forward projections, finance teams are always reacting — never anticipating.</p>
+        <span class="pain-tag">Revenue Impact</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FEATURES SECTION ───────────────────────────────────────── -->
+<section class="section" id="features" style="background: var(--bg-2)">
+  <div class="container">
+    <div class="section-header">
+      <span class="tag">Platform Features</span>
+      <h2>Built for aviation finance.<br>Not adapted from it.</h2>
+      <p>Every feature is designed around the workflows of aviation finance professionals, tax counsel, and aircraft management companies.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.8" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="13" cy="13" r="10"/>
+            <path d="M13 3C13 3 8 8 8 13s5 10 5 10"/>
+            <path d="M3 13h20"/>
+            <path d="M13 3C13 3 18 8 18 13s-5 10-5 10"/>
+          </svg>
+        </div>
+        <div>
+          <h3>Real-Time Position Tracking</h3>
+          <p>Live ADS-B integration with under-60-second position updates. Every movement is timestamped, geocoded, and mapped to the correct tax jurisdiction automatically.</p>
+          <div class="feature-detail">
+            <span>FEED:</span> ADS-B · FAA ASDI · Eurocontrol NM<br>
+            <span>LATENCY:</span> &lt; 38s average · 99.97% uptime
+          </div>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M3 6h20M3 12h14M3 18h8"/>
+            <rect x="16" y="14" width="8" height="8" rx="1"/>
+            <path d="M18 18l1.5 1.5L22 16"/>
+          </svg>
+        </div>
+        <div>
+          <h3>Tax Jurisdiction Mapping</h3>
+          <p>183-day rule calculations, treaty analysis, and state-level nexus tracking — all computed in real time. Know your exposure before your counsel does.</p>
+          <div class="feature-detail">
+            <span>COVERS:</span> 183 jurisdictions · 47 US states<br>
+            <span>TREATIES:</span> OECD Model · US Model · BEPS
+          </div>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M4 18V9l9-6 9 6v9"/>
+            <path d="M9 22v-7h8v7"/>
+            <path d="M4 18h18"/>
+          </svg>
+        </div>
+        <div>
+          <h3>Finance-Ready Reporting</h3>
+          <p>Generate audit-trail reports, jurisdiction summaries, and tax exposure assessments in one click. Formatted for counsel, auditors, and lenders.</p>
+          <div class="feature-detail">
+            <span>EXPORT:</span> PDF · Excel · CSV · API JSON<br>
+            <span>TEMPLATES:</span> ISAE 3402 · SOC 2 · Custom
+          </div>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div>
+          <h3>Immutable Audit Trail</h3>
+          <p>Every position record, jurisdiction change, and user action is logged with cryptographic timestamps. Challenge-proof data for dispute resolution and regulatory review.</p>
+          <div class="feature-detail">
+            <span>RETENTION:</span> 7-year immutable log<br>
+            <span>STANDARD:</span> ISO 27001 · SOC 2 Type II
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FULL DASHBOARD SECTION ─────────────────────────────────── -->
+<section class="section dash-section" id="dashboard">
+  <div class="dash-container">
+    <div class="section-header">
+      <span class="tag">Live Dashboard</span>
+      <h2>Your entire fleet.<br>One source of truth.</h2>
+      <p>The ClosingWindows flight log gives you a complete movement history with real-time jurisdiction classification — ready for immediate export.</p>
+    </div>
+    <div class="full-mockup">
+      <div class="fm-header">
+        <div class="fm-tabs">
+          <div class="fm-tab active">Movement Log</div>
+          <div class="fm-tab">Jurisdiction Map</div>
+          <div class="fm-tab">Tax Exposure</div>
+          <div class="fm-tab">Audit Trail</div>
+        </div>
+        <div class="fm-controls">
+          <div class="search-wrap">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="4"/><path d="M9 9l2.5 2.5"/></svg>
+            <input class="fm-search" type="text" placeholder="Search tail, airport..." value="">
+          </div>
+          <div class="mini-btn mini-btn-ghost">Filter</div>
+          <div class="mini-btn">Export</div>
+        </div>
+      </div>
+      <table class="fm-table">
+        <thead>
+          <tr>
+            <th>Tail #</th>
+            <th>Aircraft</th>
+            <th>Departure</th>
+            <th>Arrival</th>
+            <th>Block Time</th>
+            <th>Jurisdiction</th>
+            <th>YTD Days</th>
+            <th>Threshold</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tail-num">N-817CW</span><br><span class="reg">Gulfstream G650ER</span></td>
+            <td>G650ER</td>
+            <td><span class="airport">KTEB</span><br><span class="reg">Teterboro, NJ</span></td>
+            <td><span class="airport">EGLL</span><br><span class="reg">London Heathrow</span></td>
+            <td>07:22</td>
+            <td><div class="juris"><span class="flag">🇬🇧</span>United Kingdom</div></td>
+            <td class="days-val">43</td>
+            <td>183</td>
+            <td><span class="status-pill pill-green"><span class="dot-s"></span>Compliant</span></td>
+          </tr>
+          <tr>
+            <td><span class="tail-num">VP-BCX4</span><br><span class="reg">Bombardier Global 7500</span></td>
+            <td>GL7500</td>
+            <td><span class="airport">OMDB</span><br><span class="reg">Dubai Intl</span></td>
+            <td><span class="airport">WSSS</span><br><span class="reg">Changi, Singapore</span></td>
+            <td>08:11</td>
+            <td><div class="juris"><span class="flag">🇸🇬</span>Singapore</div></td>
+            <td class="days-val">91</td>
+            <td>183</td>
+            <td><span class="status-pill pill-amber"><span class="dot-s"></span>Near Limit</span></td>
+          </tr>
+          <tr>
+            <td><span class="tail-num">M-AVIA</span><br><span class="reg">Dassault Falcon 8X</span></td>
+            <td>F8X</td>
+            <td><span class="airport">LFPB</span><br><span class="reg">Paris Le Bourget</span></td>
+            <td><span class="airport">LSGG</span><br><span class="reg">Geneva Intl</span></td>
+            <td>01:04</td>
+            <td><div class="juris"><span class="flag">🇨🇭</span>Switzerland</div></td>
+            <td class="days-val">28</td>
+            <td>90</td>
+            <td><span class="status-pill pill-green"><span class="dot-s"></span>Compliant</span></td>
+          </tr>
+          <tr>
+            <td><span class="tail-num">OE-LCW</span><br><span class="reg">Airbus ACJ320neo</span></td>
+            <td>ACJ320</td>
+            <td><span class="airport">LOWW</span><br><span class="reg">Vienna Intl</span></td>
+            <td><span class="airport">KJFK</span><br><span class="reg">New York JFK</span></td>
+            <td>09:37</td>
+            <td><div class="juris"><span class="flag">🇺🇸</span>United States</div></td>
+            <td class="days-val" style="color:var(--red)">127</td>
+            <td>183</td>
+            <td><span class="status-pill pill-red"><span class="dot-s"></span>Review Now</span></td>
+          </tr>
+          <tr>
+            <td><span class="tail-num">CS-TKX</span><br><span class="reg">Embraer Lineage 1000E</span></td>
+            <td>L1000E</td>
+            <td><span class="airport">LPPT</span><br><span class="reg">Lisbon Portela</span></td>
+            <td><span class="airport">FACT</span><br><span class="reg">Cape Town Intl</span></td>
+            <td>10:49</td>
+            <td><div class="juris"><span class="flag">🇿🇦</span>South Africa</div></td>
+            <td class="days-val">12</td>
+            <td>183</td>
+            <td><span class="status-pill pill-green"><span class="dot-s"></span>Compliant</span></td>
+          </tr>
+          <tr>
+            <td><span class="tail-num">T7-MAL</span><br><span class="reg">Boeing BBJ 737-800</span></td>
+            <td>BBJ2</td>
+            <td><span class="airport">LIRF</span><br><span class="reg">Rome Fiumicino</span></td>
+            <td><span class="airport">OEJN</span><br><span class="reg">Jeddah King Abdulaziz</span></td>
+            <td>05:18</td>
+            <td><div class="juris"><span class="flag">🇸🇦</span>Saudi Arabia</div></td>
+            <td class="days-val">67</td>
+            <td>183</td>
+            <td><span class="status-pill pill-blue"><span class="dot-s"></span>Monitoring</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="fm-footer">
+        <span class="showing">Showing 6 of 247 movements · Page 1 of 42</span>
+        <div class="last-sync">
+          <span class="sync-dot"></span>
+          Live sync active · Last updated 38s ago · ADS-B + FAA ASDI
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── TRUST SECTION ──────────────────────────────────────────── -->
+<section class="trust-section">
+  <div class="container">
+    <div class="trust-label">Trusted by aviation finance teams at</div>
+    <div class="trust-logos">
+      <div class="trust-logo">Meridian<sub> Asset Mgmt</sub></div>
+      <div class="trust-logo">Aviaton<sub> Capital Group</sub></div>
+      <div class="trust-logo">Orion<sub> Flight Finance</sub></div>
+      <div class="trust-logo">Stratos<sub> Trust Co.</sub></div>
+      <div class="trust-logo">Veridian<sub> AOC</sub></div>
+    </div>
+    <div class="testimonial-wrap">
+      <p class="testimonial-text">
+        "ClosingWindows cut our jurisdiction reconciliation time from three days to under two hours. Before, we were always finding out about threshold issues after the fact. Now we get ahead of them."
+      </p>
+      <div class="testimonial-author">
+        <div class="author-avatar">JR</div>
+        <div>
+          <div class="author-name">James R.</div>
+          <div class="author-title">Head of Aviation Finance · Meridian Asset Management</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── PRICING SECTION ────────────────────────────────────────── -->
+<section class="section" id="pricing" style="background: var(--bg-2)">
+  <div class="container">
+    <div class="section-header">
+      <span class="tag">Pricing</span>
+      <h2>Transparent pricing.<br>No surprises.</h2>
+      <p>All plans include full audit trail, jurisdiction mapping, and export capabilities. Billed annually.</p>
+    </div>
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <div class="pricing-tier">Professional</div>
+        <div class="pricing-price">$490<sub>/mo</sub></div>
+        <div class="pricing-period">Per aircraft, billed annually · Up to 5 aircraft</div>
+        <div class="pricing-divider"></div>
+        <ul class="pricing-features">
+          <li>Real-time ADS-B position tracking</li>
+          <li>183-day rule calculator (all jurisdictions)</li>
+          <li>PDF + Excel export reports</li>
+          <li>7-year immutable audit log</li>
+          <li>Email & Slack threshold alerts</li>
+          <li>Standard API access (1,000 req/day)</li>
+          <li class="muted">Custom jurisdiction rules</li>
+          <li class="muted">Dedicated account manager</li>
+          <li class="muted">SLA guarantee</li>
+        </ul>
+        <a href="#" class="btn btn-ghost" style="width:100%;justify-content:center;padding:13px 20px;">Request Access</a>
+        <p class="pricing-note">14-day free trial · No credit card required</p>
+      </div>
+      <div class="pricing-card featured">
+        <div class="pricing-tier">Enterprise</div>
+        <div class="pricing-price">Custom</div>
+        <div class="pricing-period">Unlimited aircraft · Multi-entity · White-label</div>
+        <div class="pricing-divider" style="border-color: rgba(0,102,255,0.2)"></div>
+        <ul class="pricing-features">
+          <li>Everything in Professional</li>
+          <li>Unlimited aircraft monitoring</li>
+          <li>Custom jurisdiction rule builder</li>
+          <li>Multi-entity / trust structure support</li>
+          <li>Full API access (unlimited)</li>
+          <li>Dedicated account manager</li>
+          <li>99.9% uptime SLA</li>
+          <li>Custom report templates</li>
+          <li>SSO + SAML + IP allowlisting</li>
+        </ul>
+        <a href="mailto:enterprise@closingwindows.com" class="btn btn-primary" style="width:100%;justify-content:center;padding:13px 20px;">Talk to Sales →</a>
+        <p class="pricing-note">Typically onboarded within 5 business days</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FINAL CTA ───────────────────────────────────────────────── -->
+<section class="final-cta">
+  <div class="container">
+    <h2>Stop reacting.<br>Start <em style="font-style:normal;color:var(--accent)">anticipating.</em></h2>
+    <p>Join the aviation finance teams who know exactly where their aircraft will be — before it becomes a problem.</p>
+    <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+      <a href="#" class="btn btn-primary btn-lg">
+        Request Early Access
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+      <a href="mailto:hello@closingwindows.com" class="btn btn-ghost btn-lg">Contact Sales</a>
+    </div>
+    <div class="cta-disclaimer">No credit card required · Setup in under 15 minutes · Cancel anytime</div>
+  </div>
+</section>
+
+<!-- ─── FOOTER ─────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="nav-logo" style="font-size:16px;margin-bottom:0">
+        <svg class="logo-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M16 2C10 2 4 7 4 16C4 22 8.5 28 16 30C23.5 28 28 22 28 16C28 7 22 2 16 2Z" fill="#1a2540"/>
+          <path d="M16 3C10.5 3 5 7.8 5 16C5 21.8 9.2 27.5 16 29.3C22.8 27.5 27 21.8 27 16C27 7.8 21.5 3 16 3Z" fill="#111827"/>
+          <path d="M8.5 17.5L11.5 14L18 13.5L22.5 10.5C23 10.2 23.8 10.5 23.5 11.2L20.5 16L14.5 17L12 20.5L11 20L12.5 17.5L10 17.8L8.8 19.2L8.2 18.8L9 17.5H8.5Z" fill="white"/>
+        </svg>
+        Closing<span class="accent">Windows</span>
+      </div>
+      <p>Aviation tax jurisdiction intelligence for finance professionals. Precise, authoritative, data-forward.</p>
+    </div>
+    <div class="footer-nav">
+      <div>
+        <div class="footer-col-title">Product</div>
+        <ul class="footer-links">
+          <li><a href="#">Features</a></li>
+          <li><a href="#">Pricing</a></li>
+          <li><a href="#">Integrations</a></li>
+          <li><a href="#">Changelog</a></li>
+          <li><a href="#">Status</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Company</div>
+        <ul class="footer-links">
+          <li><a href="#">About</a></li>
+          <li><a href="#">Blog</a></li>
+          <li><a href="#">Careers</a></li>
+          <li><a href="#">Press</a></li>
+          <li><a href="#">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Legal</div>
+        <ul class="footer-links">
+          <li><a href="#">Privacy Policy</a></li>
+          <li><a href="#">Terms of Service</a></li>
+          <li><a href="#">Data Processing</a></li>
+          <li><a href="#">Security</a></li>
+          <li><a href="#">Cookies</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2025 ClosingWindows Ltd. All rights reserved.</p>
+    <p class="footer-coords mono" id="footer-coords">LAT 51.5074°N · LON 000.1278°W · UTC+0</p>
+  </div>
+</footer>
+
+<!-- ─── JAVASCRIPT ─────────────────────────────────────────────── -->
+<script>
+/* ── Ticker Bar ── */
+const tickerData = [
+  { tail: 'N-817CW', from: 'KTEB', to: 'EGLL', status: 'IN FLIGHT', cls: 'green' },
+  { tail: 'VP-BCX4', from: 'OMDB', to: 'WSSS', status: 'LANDED', cls: 'green' },
+  { tail: 'M-AVIA',  from: 'LFPB', to: 'LSGG', status: 'TAXIING', cls: 'amber' },
+  { tail: 'OE-LCW',  from: 'LOWW', to: 'KJFK', status: 'IN FLIGHT', cls: 'green' },
+  { tail: 'CS-TKX',  from: 'LPPT', to: 'FACT', status: 'PARKED', cls: 'amber' },
+  { tail: 'T7-MAL',  from: 'LIRF', to: 'OEJN', status: 'IN FLIGHT', cls: 'green' },
+  { tail: 'N-221RW', from: 'KSFO', to: 'RJTT', status: 'DEPARTED', cls: 'green' },
+  { tail: 'HB-JRA',  from: 'LSGG', to: 'LFPB', status: 'IN FLIGHT', cls: 'green' },
+  { tail: 'VQ-BRA',  from: 'UUEE', to: 'LTBA', status: 'CLEARED', cls: 'amber' },
+];
+const ticker = document.getElementById('ticker');
+const items = [...tickerData, ...tickerData]; // duplicate for seamless loop
+items.forEach(d => {
+  const el = document.createElement('div');
+  el.className = 'ticker-item';
+  el.innerHTML = `<span class="t-tail">${d.tail}</span><span style="color:var(--text-3)">·</span>${d.from} → ${d.to}<span style="color:var(--text-3)">·</span><span class="t-status ${d.cls}">${d.status}</span>`;
+  ticker.appendChild(el);
+});
+
+/* ── Counter Animations ── */
+function animateCounter(el) {
+  const target = parseFloat(el.dataset.target);
+  const isDecimal = target % 1 !== 0;
+  const duration = 2000;
+  const start = performance.now();
+  function update(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = target * eased;
+    el.textContent = isDecimal
+      ? current.toFixed(2)
+      : Math.floor(current).toLocaleString();
+    if (progress < 1) requestAnimationFrame(update);
+    else el.textContent = isDecimal ? target.toFixed(2) : target.toLocaleString();
+  }
+  requestAnimationFrame(update);
+}
+
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      animateCounter(e.target);
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.5 });
+
+document.querySelectorAll('[data-target]').forEach(el => observer.observe(el));
+
+/* ── Live coordinate update ── */
+function updateCoords() {
+  const coords = document.getElementById('footer-coords');
+  if (!coords) return;
+  const lat = (51.5074 + (Math.random() - 0.5) * 0.001).toFixed(4);
+  const lon = (0.1278 + (Math.random() - 0.5) * 0.001).toFixed(4);
+  coords.textContent = `LAT ${lat}°N · LON ${lon}°W · UTC+0`;
+}
+setInterval(updateCoords, 4000);
+
+/* ── Smooth nav highlight on scroll ── */
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-links a');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 100) current = s.id;
+  });
+  navLinks.forEach(a => {
+    a.style.color = a.getAttribute('href') === '#' + current
+      ? 'var(--text-1)' : '';
+  });
+}, { passive: true });
+
+/* ── Sticky nav shadow on scroll ── */
+const nav = document.querySelector('.nav');
+window.addEventListener('scroll', () => {
+  nav.style.borderBottomColor = window.scrollY > 10
+    ? 'rgba(255,255,255,0.1)'
+    : 'var(--border)';
+}, { passive: true });
+</script>
+</body>
+</html>
