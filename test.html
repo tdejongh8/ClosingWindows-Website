@@ -1,0 +1,2407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Demo — ClosingWindows</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --bg:         #F4F6FA;
+            --bg-2:       #EDF0F7;
+            --bg-card:    #FFFFFF;
+            --border:     rgba(0,0,0,0.08);
+            --accent:     #0055DD;
+            --accent-dim: rgba(0,85,221,0.1);
+            --amber:      #D4830A;
+            --amber-dim:  rgba(212,131,10,0.1);
+            --green:      #00964A;
+            --green-dim:  rgba(0,150,74,0.1);
+            --purple:     #7C3AED;
+            --purple-dim: rgba(124,58,237,0.1);
+            --red:        #C92B3A;
+            --text-1:     #0D1120;
+            --text-2:     #3D4F6E;
+            --text-3:     #7A8FAD;
+            --mono:       'JetBrains Mono', monospace;
+            --sans:       'Inter', sans-serif;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { min-height: 100%; }
+        body {
+            font-family: var(--sans); background: var(--bg);
+            color: var(--text-1); -webkit-font-smoothing: antialiased;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+            background-image:
+                linear-gradient(rgba(0,85,221,0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,85,221,0.05) 1px, transparent 1px);
+            background-size: 48px 48px;
+        }
+
+        /* ── Nav ─────────────────────────────────────── */
+        .nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 300;
+            height: 56px; display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px;
+            background: rgba(255,255,255,0.93); backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 1px 12px rgba(0,0,0,0.06);
+        }
+        .nav-logo {
+            font-family: var(--sans); font-size: 15px; font-weight: 700;
+            letter-spacing: 0.08em; text-transform: uppercase;
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none; color: var(--text-1);
+        }
+        .nav-logo svg { width: 26px; height: 26px; flex-shrink: 0; }
+        .nav-logo .accent { color: var(--accent); }
+        .nav-badge {
+            font-family: var(--mono); font-size: 10px; font-weight: 600;
+            color: var(--green); background: var(--green-dim);
+            border: 1px solid rgba(0,150,74,0.25);
+            padding: 3px 10px; border-radius: 4px; letter-spacing: 0.08em;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .nav-badge .dot {
+            width: 5px; height: 5px; border-radius: 50%; background: var(--green);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+        .nav-back {
+            font-family: var(--mono); font-size: 11px; color: var(--text-3);
+            text-decoration: none; transition: color .2s;
+        }
+        .nav-back:hover { color: var(--accent); }
+
+        /* ── Layout ───────────────────────────────────── */
+        .page {
+            position: relative; z-index: 1;
+            max-width: 1280px; margin: 0 auto;
+            padding: 72px 24px 48px;
+        }
+        .page-header {
+            display: flex; align-items: flex-start; justify-content: space-between;
+            margin-bottom: 20px; gap: 20px; flex-wrap: wrap;
+        }
+        .page-title { font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+        .page-sub { font-family: var(--mono); font-size: 11px; color: var(--text-3); margin-top: 4px; }
+        .header-controls { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+
+        /* ── Buttons ──────────────────────────────────── */
+        .btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            font-family: var(--sans); font-size: 12px; font-weight: 600;
+            letter-spacing: .04em; padding: 8px 16px; border-radius: 6px;
+            cursor: pointer; transition: all .2s; border: none; text-decoration: none;
+            white-space: nowrap;
+        }
+        .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 0 14px rgba(0,85,221,.2); }
+        .btn-primary:hover { background: #0047C0; transform: translateY(-1px); }
+        .btn-ghost { background: transparent; color: var(--text-2); border: 1px solid var(--border); }
+        .btn-ghost:hover { color: var(--accent); border-color: var(--accent); }
+        .btn-sm { font-size: 11px; padding: 5px 12px; border-radius: 5px; }
+        .btn-danger { background: rgba(201,43,58,.08); color: var(--red); border: 1px solid rgba(201,43,58,.2); }
+        .btn-danger:hover { background: rgba(201,43,58,.15); }
+
+        /* ── Tag ──────────────────────────────────────── */
+        .tag {
+            font-family: var(--mono); font-size: 10px; font-weight: 600;
+            letter-spacing: .1em; text-transform: uppercase;
+            color: var(--accent); background: var(--accent-dim);
+            border: 1px solid rgba(0,85,221,.2);
+            padding: 3px 10px; border-radius: 4px;
+            display: inline-flex; align-items: center; gap: 5px;
+        }
+        .tag::before { content: '//'; opacity: .5; }
+
+        /* ── Card ─────────────────────────────────────── */
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+        .card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 20px; border-bottom: 1px solid var(--border);
+            background: rgba(0,0,0,.015);
+        }
+        .card-title {
+            font-size: 13px; font-weight: 700;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .card-body { padding: 20px; }
+
+        /* ── Controls panel ───────────────────────────── */
+        .controls-panel {
+            background: var(--bg-2); border: 1px solid var(--border);
+            border-radius: 10px; padding: 16px 20px;
+            margin-bottom: 16px; display: flex; flex-direction: column; gap: 14px;
+        }
+
+        /* ── Form elements ────────────────────────────── */
+        .ctrl-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+        .ctrl-group { display: flex; flex-direction: column; gap: 5px; }
+        .ctrl-label {
+            font-family: var(--mono); font-size: 9px; font-weight: 700;
+            color: var(--text-3); letter-spacing: .14em; text-transform: uppercase;
+        }
+        .ctrl-select, .ctrl-input {
+            font-family: var(--mono); font-size: 12px; font-weight: 500;
+            color: var(--text-1); background: var(--bg-card);
+            border: 1px solid rgba(0,0,0,.12); border-radius: 6px;
+            padding: 7px 12px; outline: none;
+            transition: border-color .2s;
+        }
+        .ctrl-select {
+            padding-right: 30px;
+            -webkit-appearance: none; appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237A8FAD' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 10px center;
+            cursor: pointer;
+        }
+        .ctrl-select:focus, .ctrl-input:focus { border-color: var(--accent); }
+        .ctrl-input.airport-input { text-transform: uppercase; width: 110px; }
+        .ctrl-input.time-input    { width: 90px; }
+        .ctrl-input.date-input    { width: 136px; }
+        .ctrl-input.reg-input     { width: 140px; }
+
+        /* Source pill tabs */
+        .source-tabs { display: flex; gap: 0; }
+        .source-tab {
+            font-family: var(--mono); font-size: 11px; font-weight: 600;
+            padding: 7px 18px; cursor: pointer; border: 1px solid var(--border);
+            background: var(--bg-card); color: var(--text-3);
+            transition: all .15s; letter-spacing: .03em;
+        }
+        .source-tab:first-child { border-radius: 6px 0 0 6px; }
+        .source-tab:last-child  { border-radius: 0 6px 6px 0; }
+        .source-tab + .source-tab { border-left: none; }
+        .source-tab.active {
+            background: var(--accent); color: #fff;
+            border-color: var(--accent); box-shadow: 0 0 14px rgba(0,85,221,.25);
+        }
+        .source-tab.disabled { opacity: .45; cursor: not-allowed; }
+
+        /* ── Paste FR24 UI ────────────────────────────── */
+        #pastePanel { display: none; }
+        .paste-ac-panel { display: none; }
+        .paste-ac-panel.active { display: block; }
+        .paste-textarea {
+            width: 100%; min-height: 110px; resize: vertical;
+            font-family: var(--mono); font-size: 11px; color: var(--text-1);
+            background: var(--bg-card); border: 1px solid rgba(0,0,0,.12);
+            border-radius: 6px; padding: 10px 12px; outline: none;
+            transition: border-color .2s; line-height: 1.6;
+        }
+        .paste-textarea:focus { border-color: var(--accent); }
+        .paste-hint {
+            font-family: var(--mono); font-size: 9px; color: var(--text-3);
+            margin-top: 6px; line-height: 1.7; letter-spacing: .02em;
+        }
+        .paste-preview { margin-top: 10px; display: flex; flex-direction: column; gap: 3px; }
+        .paste-row {
+            display: flex; gap: 10px; align-items: center;
+            padding: 4px 10px; border-radius: 4px; background: var(--bg-2);
+            font-family: var(--mono); font-size: 10px; color: var(--text-2);
+        }
+        .paste-row .pr-ok  { color: var(--green); font-weight: 700; }
+        .paste-row .pr-warn { color: var(--amber); font-weight: 600; }
+        .paste-row .pr-err  { color: var(--red); font-weight: 600; }
+
+        /* ── Reg selects (preset mode) ────────────────── */
+        .reg-selects { display: flex; gap: 12px; flex: 1; flex-wrap: wrap; }
+        .reg-group { flex: 1; min-width: 150px; }
+        .reg-group.hidden { display: none; }
+        .reg-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+        .ctrl-select.reg-select { width: 100%; }
+
+        /* ── Manual entry UI ──────────────────────────── */
+        #manualPanel { display: none; }
+        .manual-aircraft-tabs {
+            display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 14px;
+        }
+        .mac-tab {
+            font-family: var(--mono); font-size: 11px; font-weight: 600;
+            padding: 8px 20px; cursor: pointer; border-bottom: 2px solid transparent;
+            color: var(--text-3); transition: all .15s; letter-spacing: .03em;
+            display: flex; align-items: center; gap: 7px;
+        }
+        .mac-tab .tab-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .mac-tab.active { color: var(--text-1); border-bottom-color: var(--accent); }
+        .mac-tab.hidden { display: none; }
+
+        .manual-ac-panel { display: none; }
+        .manual-ac-panel.active { display: block; }
+
+        .manual-ac-header {
+            display: flex; align-items: center; gap: 14px; margin-bottom: 12px; flex-wrap: wrap;
+        }
+
+        /* Schedule table */
+        .sched-table-wrap { overflow-x: auto; }
+        .sched-table {
+            width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11px;
+            min-width: 680px;
+        }
+        .sched-table th {
+            text-align: left; font-size: 9px; font-weight: 700; letter-spacing: .12em;
+            text-transform: uppercase; color: var(--text-3);
+            padding: 6px 10px; border-bottom: 1px solid var(--border);
+            background: var(--bg-2);
+        }
+        .sched-table td { padding: 5px 6px; border-bottom: 1px solid rgba(0,0,0,.04); vertical-align: middle; }
+        .sched-table tr:last-child td { border-bottom: none; }
+        .sched-table tbody tr:hover td { background: rgba(0,85,221,.03); }
+        .sched-table .cell-date    { min-width: 150px; }
+        .sched-table .cell-time    { min-width: 100px; }
+        .sched-table .cell-airport { min-width: 120px; }
+        .sched-table .cell-del     { width: 36px; text-align: center; }
+
+        /* airport validation feedback */
+        .ctrl-input.airport-input.ok  { border-color: var(--green); }
+        .ctrl-input.airport-input.err { border-color: var(--red); }
+
+        /* Add leg row */
+        .add-leg-row td { padding-top: 8px; }
+
+        /* API placeholder */
+        #apiPanel {
+            display: none; text-align: center; padding: 32px 20px;
+            background: var(--bg-2); border: 1px dashed var(--border); border-radius: 8px;
+        }
+        #apiPanel .api-icon { font-size: 2rem; margin-bottom: 12px; }
+        #apiPanel h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+        #apiPanel p { font-size: 13px; color: var(--text-2); max-width: 400px; margin: 0 auto 18px; }
+        .api-key-row { display: flex; gap: 8px; justify-content: center; max-width: 420px; margin: 0 auto; }
+        .api-key-row input {
+            flex: 1; font-family: var(--mono); font-size: 12px;
+            padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+            background: var(--bg-card); color: var(--text-3); outline: none;
+        }
+
+        /* ── State selector ───────────────────────────── */
+        .state-select-wrap {
+            padding: 12px 16px; background: var(--bg-card);
+            border: 1px solid var(--border); border-radius: 8px;
+        }
+        .state-select-label {
+            font-family: var(--mono); font-size: 9px; font-weight: 700;
+            color: var(--text-3); letter-spacing: .14em; text-transform: uppercase;
+            margin-bottom: 8px; display: block;
+        }
+        .state-row { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+        .state-dropdown { position: relative; min-width: 210px; }
+        .state-dropdown-btn {
+            width: 100%; display: flex; justify-content: space-between; align-items: center;
+            padding: 7px 12px; background: var(--bg-2);
+            border: 1px solid var(--border); border-radius: 6px;
+            font-family: var(--mono); font-size: 11px; color: var(--text-2);
+            cursor: pointer; transition: border-color .2s;
+        }
+        .state-dropdown-btn:hover, .state-dropdown-btn.open { border-color: var(--accent); color: var(--text-1); }
+        .dropdown-arrow { font-size: 10px; color: var(--text-3); transition: transform .2s; }
+        .state-dropdown-btn.open .dropdown-arrow { transform: rotate(180deg); }
+        .state-dropdown-panel {
+            display: none; position: absolute; top: calc(100% + 5px); left: 0; right: 0;
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,.1); z-index: 9999; overflow: hidden;
+        }
+        .state-dropdown-panel.open { display: block; }
+        .state-search-wrap { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+        .state-search-wrap input {
+            width: 100%; padding: 6px 10px; background: var(--bg-2);
+            border: 1px solid var(--border); border-radius: 5px;
+            font-family: var(--mono); font-size: 11px; color: var(--text-1); outline: none;
+        }
+        .state-search-wrap input:focus { border-color: var(--accent); }
+        .state-checkbox-list { max-height: 200px; overflow-y: auto; padding: 4px 0; }
+        .state-checkbox-list label {
+            display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+            font-family: var(--mono); font-size: 11px; color: var(--text-2);
+            cursor: pointer; transition: background .12s;
+        }
+        .state-checkbox-list label:hover { background: var(--accent-dim); color: var(--text-1); }
+        .state-checkbox-list input[type="checkbox"] { accent-color: var(--accent); width: 13px; height: 13px; flex-shrink: 0; }
+        .state-checkbox-list label.hidden { display: none; }
+        .selected-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+        .state-tag {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: var(--accent-dim); color: var(--accent);
+            border: 1px solid rgba(0,85,221,.2);
+            padding: 2px 8px; border-radius: 4px;
+            font-family: var(--mono); font-size: 10px; font-weight: 600;
+        }
+        .state-tag button { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 11px; opacity: .6; padding: 0; }
+        .state-tag button:hover { opacity: 1; }
+
+        /* ── Map ──────────────────────────────────────── */
+        #routeMap {
+            height: 500px; border-radius: 8px; overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        /* Leaflet overrides */
+        .leaflet-container { background: #E8EEF7 !important; }
+        .leaflet-control-zoom a { background: #fff !important; color: var(--text-2) !important; border-color: var(--border) !important; }
+        .leaflet-control-zoom a:hover { color: var(--accent) !important; }
+        .leaflet-control-attribution { background: rgba(255,255,255,.85) !important; color: var(--text-3) !important; font-family: var(--mono) !important; font-size: 9px !important; }
+        .leaflet-popup-content-wrapper { background: #fff !important; color: var(--text-1) !important; border: 1px solid var(--border) !important; border-radius: 8px !important; box-shadow: 0 8px 24px rgba(0,0,0,.12) !important; font-family: var(--mono) !important; font-size: 11px !important; }
+        .leaflet-popup-tip { background: #fff !important; }
+
+        /* ── Legend ───────────────────────────────────── */
+        .legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-2); }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+        /* ── Sliders ──────────────────────────────────── */
+        .sliders-wrap { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+        .slider-section { padding: 13px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-2); }
+        .slider-section.master { background: rgba(0,85,221,.06); border-color: rgba(0,85,221,.2); }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .sh-label { font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--text-2); display: flex; align-items: center; gap: 7px; }
+        .slider-section.master .sh-label { color: var(--text-1); font-weight: 600; }
+        .sh-status { font-family: var(--mono); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 3px; }
+        .sh-status.ac0 { color: #2563EB; background: rgba(59,130,246,.1); }
+        .sh-status.ac1 { color: var(--amber); background: var(--amber-dim); }
+        .sh-status.ac2 { color: var(--green); background: var(--green-dim); }
+        .sh-status.ac3 { color: var(--purple); background: var(--purple-dim); }
+        .sh-status.master { color: var(--accent); background: var(--accent-dim); }
+
+        .slider-track { width: 100%; -webkit-appearance: none; appearance: none; border-radius: 4px; outline: none; cursor: pointer; display: block; }
+        .slider-track.individual   { height: 5px; }
+        .slider-track.master-track { height: 7px; }
+
+        .slider-track.ac0-track { background: linear-gradient(90deg, #3B82F6 0%, rgba(0,0,0,.1) 0%); }
+        .slider-track.ac0-track::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg,#2563eb,#3B82F6); cursor: pointer; box-shadow: 0 1px 6px rgba(59,130,246,.5); }
+        .slider-track.ac0-track::-moz-range-thumb    { width: 18px; height: 18px; border-radius: 50%; border: none; background: linear-gradient(135deg,#2563eb,#3B82F6); cursor: pointer; }
+
+        .slider-track.ac1-track { background: linear-gradient(90deg, #D4830A 0%, rgba(0,0,0,.1) 0%); }
+        .slider-track.ac1-track::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg,#b56d06,#D4830A); cursor: pointer; box-shadow: 0 1px 6px rgba(212,131,10,.5); }
+        .slider-track.ac1-track::-moz-range-thumb    { width: 18px; height: 18px; border-radius: 50%; border: none; background: linear-gradient(135deg,#b56d06,#D4830A); cursor: pointer; }
+
+        .slider-track.ac2-track { background: linear-gradient(90deg, #00964A 0%, rgba(0,0,0,.1) 0%); }
+        .slider-track.ac2-track::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg,#007a3d,#00964A); cursor: pointer; box-shadow: 0 1px 6px rgba(0,150,74,.5); }
+        .slider-track.ac2-track::-moz-range-thumb    { width: 18px; height: 18px; border-radius: 50%; border: none; background: linear-gradient(135deg,#007a3d,#00964A); cursor: pointer; }
+
+        .slider-track.ac3-track { background: linear-gradient(90deg, #7C3AED 0%, rgba(0,0,0,.1) 0%); }
+        .slider-track.ac3-track::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg,#6d28d9,#7C3AED); cursor: pointer; box-shadow: 0 1px 6px rgba(124,58,237,.5); }
+        .slider-track.ac3-track::-moz-range-thumb    { width: 18px; height: 18px; border-radius: 50%; border: none; background: linear-gradient(135deg,#6d28d9,#7C3AED); cursor: pointer; }
+
+        .slider-track.master-track { background: linear-gradient(90deg, var(--accent) 0%, rgba(0,0,0,.1) 0%); }
+        .slider-track.master-track::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg,#004fd4,var(--accent)); cursor: pointer; box-shadow: 0 0 10px rgba(0,85,221,.3), 0 0 0 3px rgba(0,85,221,.12); }
+        .slider-track.master-track::-moz-range-thumb    { width: 22px; height: 22px; border-radius: 50%; border: none; background: linear-gradient(135deg,#004fd4,var(--accent)); cursor: pointer; }
+
+        .slider-segments { display: grid; grid-template-columns: 1fr 1fr 1fr; margin-top: 6px; font-family: var(--mono); font-size: 9px; color: var(--text-3); border-top: 1px solid var(--border); padding-top: 5px; }
+        .slider-segments span { padding: 0 3px; text-align: center; }
+        .slider-segments span:first-child { text-align: left; padding-left: 0; }
+        .slider-segments span:last-child  { text-align: right; padding-right: 0; }
+
+        /* ── Schedule range bar ──────────────────────── */
+        .schedule-range {
+            padding: 10px 14px 12px; border-radius: 8px; margin-bottom: 4px;
+            background: var(--bg-2); border: 1px solid var(--border);
+            font-family: var(--mono);
+        }
+        .sch-dates {
+            display: flex; justify-content: space-between;
+            font-size: 10px; font-weight: 700; color: var(--text-2);
+            margin-bottom: 8px;
+        }
+        .sch-timeline {
+            position: relative; padding-top: 18px;
+        }
+        .sch-ticks {
+            position: absolute; top: 0; left: 0; right: 0; height: 18px;
+        }
+        .sch-tick {
+            position: absolute; transform: translateX(-50%);
+            font-size: 9px; color: var(--text-3); white-space: nowrap; line-height: 1;
+        }
+        .sch-tick.edge-start { transform: none; }
+        .sch-tick.edge-end   { transform: translateX(-100%); }
+        .sch-bar-wrap { position: relative; }
+        .sch-bar {
+            height: 3px; border-radius: 2px;
+            background: linear-gradient(90deg, var(--accent), var(--green));
+            opacity: .55;
+        }
+        .sch-marker {
+            position: absolute; top: 50%; left: 0%;
+            transform: translate(-50%, -50%);
+            width: 11px; height: 11px; border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0,85,221,.18), 0 2px 6px rgba(0,85,221,.4);
+            pointer-events: none;
+        }
+
+        /* ── Schedule range bar ──────────────────────── */
+        .schedule-range {
+            padding: 10px 14px 12px; border-radius: 8px; margin-bottom: 4px;
+            background: var(--bg-2); border: 1px solid var(--border);
+            font-family: var(--mono);
+        }
+        .sch-dates {
+            display: flex; justify-content: space-between;
+            font-size: 10px; font-weight: 700; color: var(--text-2);
+            margin-bottom: 8px;
+        }
+        .sch-timeline { position: relative; padding-top: 18px; }
+        .sch-ticks { position: absolute; top: 0; left: 0; right: 0; height: 18px; }
+        .sch-tick {
+            position: absolute; transform: translateX(-50%);
+            font-size: 9px; color: var(--text-3); white-space: nowrap; line-height: 1;
+        }
+        .sch-tick.edge-start { transform: none; }
+        .sch-tick.edge-end   { transform: translateX(-100%); }
+        .sch-bar-wrap { position: relative; }
+        .sch-bar {
+            height: 3px; border-radius: 2px;
+            background: linear-gradient(90deg, var(--accent), var(--green));
+            opacity: .55;
+        }
+        .sch-marker {
+            position: absolute; top: 50%; left: 0%;
+            transform: translate(-50%, -50%);
+            width: 11px; height: 11px; border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0,85,221,.18), 0 2px 6px rgba(0,85,221,.4);
+            pointer-events: none;
+        }
+
+        /* ── Playback controls ────────────────────────── */
+        .playback-controls {
+            display: flex; align-items: center; gap: 14px;
+            padding: 10px 14px; margin-bottom: 4px;
+            background: rgba(0,85,221,.04); border: 1px solid rgba(0,85,221,.15);
+            border-radius: 8px;
+        }
+        .play-btn {
+            width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0;
+            background: var(--accent); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,85,221,.35);
+        }
+        .play-btn:hover  { background: #004fd4; box-shadow: 0 3px 12px rgba(0,85,221,.45); }
+        .play-btn:active { transform: scale(.93); }
+        .play-btn.playing { background: #C92B3A; box-shadow: 0 2px 8px rgba(201,43,58,.35); }
+        .play-btn.playing:hover { background: #a8202e; }
+        .speed-control {
+            display: flex; align-items: center; gap: 8px; flex: 1;
+        }
+        .speed-label { font-family: var(--mono); font-size: 10px; color: var(--text-3); white-space: nowrap; }
+        .speed-val   { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--accent); min-width: 24px; }
+        .speed-track {
+            flex: 1; -webkit-appearance: none; appearance: none; height: 4px;
+            border-radius: 2px; outline: none; cursor: pointer;
+            background: linear-gradient(90deg, var(--accent) 20%, rgba(0,0,0,.1) 20%);
+        }
+        .speed-track::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+            background: var(--accent); cursor: pointer;
+            box-shadow: 0 1px 5px rgba(0,85,221,.4);
+        }
+        .speed-track::-moz-range-thumb {
+            width: 14px; height: 14px; border-radius: 50%; border: none;
+            background: var(--accent); cursor: pointer;
+        }
+
+        /* ── Route info ───────────────────────────────── */
+        .route-info { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+        .route-info-card { flex: 1; min-width: 180px; padding: 14px 16px; background: var(--bg-2); border: 1px solid var(--border); border-top-width: 2px; border-radius: 8px; font-family: var(--mono); font-size: 11px; }
+        .ri-airline { font-weight: 700; margin-bottom: 8px; }
+        .ri-leg { color: var(--text-3); margin: 3px 0; font-size: 10px; }
+
+        /* ── Error toast ──────────────────────────────── */
+        .toast {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+            background: var(--red); color: #fff; border-radius: 8px;
+            padding: 10px 20px; font-family: var(--mono); font-size: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,.2); z-index: 9999;
+            opacity: 0; transition: opacity .25s; pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+
+        /* ── Footer ───────────────────────────────────── */
+        .footer {
+            position: relative; z-index: 1; border-top: 1px solid var(--border);
+            padding: 16px 24px; display: flex; align-items: center; justify-content: space-between;
+            max-width: 1280px; margin: 0 auto;
+        }
+        .footer p { font-family: var(--mono); font-size: 10px; color: var(--text-3); }
+        .sync { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; color: var(--text-3); }
+        .sync-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
+
+        @media (max-width: 768px) {
+            .page { padding: 68px 16px 32px; }
+            .page-header { flex-direction: column; }
+            .ctrl-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Nav ───────────────────────────────────────────── -->
+<nav class="nav">
+    <a href="index.html" class="nav-logo">
+        <svg viewBox="0 0 32 32" fill="none">
+            <path d="M16 2C10 2 4 7 4 16c0 6 4.5 12 12 14C23.5 28 28 22 28 16 28 7 22 2 16 2Z" fill="#1a2540"/>
+            <path d="M16 3c-5.5 0-11 4.8-11 13 0 5.8 4.2 11.5 11 13.3C22.8 27.5 27 21.8 27 16 27 7.8 21.5 3 16 3Z" fill="#111827"/>
+            <path d="M8.5 17.5 11.5 14 18 13.5l4.5-3c.5-.3 1.3 0 1 .7L20.5 16l-6 1-2.5 3.5-1-.5 1.5-2.5-2.5.3-1.2 1.4-.6-.4.8-1.3H8.5Z" fill="white"/>
+        </svg>
+        Closing<span class="accent">Windows</span>
+    </a>
+    <div class="nav-badge"><span class="dot"></span>LIVE DEMO</div>
+    <a href="index.html" class="nav-back">← Back to site</a>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<!-- ── Page ──────────────────────────────────────────── -->
+<div class="page">
+
+    <div class="page-header">
+        <div>
+            <div style="margin-bottom:8px"><span class="tag">Interactive Demo</span></div>
+            <div class="page-title">Multi-Fleet Movement Tracker</div>
+            <div class="page-sub" id="pageSubtitle">3 aircraft · 3 days · ADS-B simulation</div>
+        </div>
+        <div class="header-controls">
+            <a href="index.html#pricing" class="btn btn-primary">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                Request Full Access
+            </a>
+            <a href="index.html" class="btn btn-ghost">← Back</a>
+        </div>
+    </div>
+
+    <!-- ── Map card ──────────────────────────────────── -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2c0 0-5 6-5 10s5 10 5 10M12 2c0 0 5 6 5 10s-5 10-5 10M2 12h20"/></svg>
+                Live Flight Map
+            </div>
+            <div class="legend" id="legend"></div>
+        </div>
+
+        <div class="card-body">
+
+            <!-- ── Controls panel ──────────────────────── -->
+            <div class="controls-panel">
+
+                <!-- Row 1: source tabs + count -->
+                <div class="ctrl-row" style="align-items:flex-end">
+                    <div class="ctrl-group">
+                        <span class="ctrl-label">Data source</span>
+                        <div class="source-tabs">
+                            <div class="source-tab active" id="tabManual" onclick="setSource('manual')">Manual Entry</div>
+                            <div class="source-tab" id="tabPaste"  onclick="setSource('paste')">Paste FR24 Data</div>
+                            <div class="source-tab" id="tabApi"    onclick="setSource('api')">FlightRadar24 API</div>
+                        </div>
+                    </div>
+                    <div class="ctrl-group" id="countGroup">
+                        <span class="ctrl-label">Aircraft to track</span>
+                        <select id="acCount" class="ctrl-select" style="width:150px" onchange="onCountChange()">
+                            <option value="1">1 aircraft</option>
+                            <option value="2">2 aircraft</option>
+                            <option value="3" selected>3 aircraft</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- ── PRESET MODE ──────────────────────── -->
+                <div id="presetPanel">
+                    <div class="ctrl-row">
+                        <div class="reg-selects" id="regSelects">
+                            <div class="reg-group" id="regGroup0">
+                                <label class="ctrl-label"><span class="reg-dot" style="background:#3B82F6"></span>Aircraft 1 registration</label>
+                                <select class="ctrl-select reg-select" id="regSel0"></select>
+                            </div>
+                            <div class="reg-group" id="regGroup1">
+                                <label class="ctrl-label"><span class="reg-dot" style="background:#D4830A"></span>Aircraft 2 registration</label>
+                                <select class="ctrl-select reg-select" id="regSel1"></select>
+                            </div>
+                            <div class="reg-group" id="regGroup2">
+                                <label class="ctrl-label"><span class="reg-dot" style="background:#00964A"></span>Aircraft 3 registration</label>
+                                <select class="ctrl-select reg-select" id="regSel2"></select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="ctrl-label" style="visibility:hidden">x</label>
+                            <button class="btn btn-primary" onclick="applyPreset()">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── MANUAL MODE ──────────────────────── -->
+                <div id="manualPanel">
+                    <!-- Aircraft tabs -->
+                    <div class="manual-aircraft-tabs" id="macTabs">
+                        <div class="mac-tab active" data-idx="0" onclick="switchMacTab(0)">
+                            <span class="tab-dot" style="background:#3B82F6"></span>
+                            <span id="macTabLabel0">Aircraft 1</span>
+                        </div>
+                        <div class="mac-tab" data-idx="1" onclick="switchMacTab(1)">
+                            <span class="tab-dot" style="background:#D4830A"></span>
+                            <span id="macTabLabel1">Aircraft 2</span>
+                        </div>
+                        <div class="mac-tab" data-idx="2" onclick="switchMacTab(2)">
+                            <span class="tab-dot" style="background:#00964A"></span>
+                            <span id="macTabLabel2">Aircraft 3</span>
+                        </div>
+                    </div>
+
+                    <!-- Per-aircraft panel (0, 1, 2) -->
+                    <div id="macPanel0" class="manual-ac-panel active"></div>
+                    <div id="macPanel1" class="manual-ac-panel"></div>
+                    <div id="macPanel2" class="manual-ac-panel"></div>
+
+                    <div style="display:flex;justify-content:flex-end;margin-top:14px">
+                        <button class="btn btn-primary" onclick="applyManual()">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            Apply to Map
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ── PASTE FR24 MODE ──────────────────── -->
+                <div id="pastePanel">
+                    <div class="manual-aircraft-tabs" id="pasteTabs">
+                        <div class="mac-tab active" data-idx="0" onclick="switchPasteTab(0)">
+                            <span class="tab-dot" style="background:#3B82F6"></span>
+                            <span id="pasteTabLabel0">Aircraft 1</span>
+                        </div>
+                        <div class="mac-tab" data-idx="1" onclick="switchPasteTab(1)">
+                            <span class="tab-dot" style="background:#D4830A"></span>
+                            <span id="pasteTabLabel1">Aircraft 2</span>
+                        </div>
+                        <div class="mac-tab" data-idx="2" onclick="switchPasteTab(2)">
+                            <span class="tab-dot" style="background:#00964A"></span>
+                            <span id="pasteTabLabel2">Aircraft 3</span>
+                        </div>
+                    </div>
+                    <div id="pastePanelAc0" class="paste-ac-panel active">
+                        <div class="manual-ac-header">
+                            <div class="ctrl-group">
+                                <span class="ctrl-label">Registration</span>
+                                <input id="pasteReg0" class="ctrl-input reg-input" type="text" placeholder="e.g. N-817CW">
+                            </div>
+                        </div>
+                        <textarea id="pasteData0" class="paste-textarea" placeholder="Paste rows copied from FlightRadar24 here…"></textarea>
+                        <div class="paste-hint">Expected columns (tab-separated from FR24): Date · Dep Airport · Arr Airport · Flight No. · Flight Time · Sched Dep · Actual Arr · Sched Arr · Status</div>
+                        <div class="paste-preview" id="pastePreview0"></div>
+                    </div>
+                    <div id="pastePanelAc1" class="paste-ac-panel">
+                        <div class="manual-ac-header">
+                            <div class="ctrl-group">
+                                <span class="ctrl-label">Registration</span>
+                                <input id="pasteReg1" class="ctrl-input reg-input" type="text" placeholder="e.g. VP-BCX4">
+                            </div>
+                        </div>
+                        <textarea id="pasteData1" class="paste-textarea" placeholder="Paste rows copied from FlightRadar24 here…"></textarea>
+                        <div class="paste-hint">Expected columns (tab-separated from FR24): Date · Dep Airport · Arr Airport · Flight No. · Flight Time · Sched Dep · Actual Arr · Sched Arr · Status</div>
+                        <div class="paste-preview" id="pastePreview1"></div>
+                    </div>
+                    <div id="pastePanelAc2" class="paste-ac-panel">
+                        <div class="manual-ac-header">
+                            <div class="ctrl-group">
+                                <span class="ctrl-label">Registration</span>
+                                <input id="pasteReg2" class="ctrl-input reg-input" type="text" placeholder="e.g. M-AVIA">
+                            </div>
+                        </div>
+                        <textarea id="pasteData2" class="paste-textarea" placeholder="Paste rows copied from FlightRadar24 here…"></textarea>
+                        <div class="paste-hint">Expected columns (tab-separated from FR24): Date · Dep Airport · Arr Airport · Flight No. · Flight Time · Sched Dep · Actual Arr · Sched Arr · Status</div>
+                        <div class="paste-preview" id="pastePreview2"></div>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;margin-top:14px">
+                        <button class="btn btn-primary" onclick="applyPaste()">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            Parse & Apply to Map
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ── API PLACEHOLDER ──────────────────── -->
+                <div id="apiPanel">
+                    <div class="api-icon">📡</div>
+                    <h3>Coming Soon to ClosingWindows</h3>
+                    <p>FlightRadar24 API integration is on the roadmap. Live and historical flight data will feed directly into the tracker.</p>
+                </div>
+
+                <!-- ── STATE SELECTOR (always visible) ──── -->
+                <div class="state-select-wrap">
+                    <span class="state-select-label">Highlight jurisdictions / states on map</span>
+                    <div class="state-row">
+                        <div class="state-dropdown" id="stateDropdown">
+                            <button class="state-dropdown-btn" id="stateDropdownBtn" type="button">
+                                <span id="stateDropdownBtnText">Select states…</span>
+                                <span class="dropdown-arrow">▾</span>
+                            </button>
+                            <div class="state-dropdown-panel" id="stateDropdownPanel">
+                                <div class="state-search-wrap">
+                                    <input type="text" id="stateSearch" placeholder="Search states…" autocomplete="off">
+                                </div>
+                                <div class="state-checkbox-list" id="stateCheckboxList"></div>
+                            </div>
+                        </div>
+                        <div class="selected-tags" id="selectedTags"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- end controls-panel -->
+
+            <!-- Map -->
+            <div id="routeMap"></div>
+
+            <!-- Sliders & route info (rendered dynamically) -->
+            <div class="sliders-wrap" id="slidersWrap"></div>
+            <div class="route-info"   id="routeInfo"></div>
+
+        </div><!-- end card-body -->
+    </div><!-- end card -->
+</div><!-- end page -->
+
+<div class="footer">
+    <p>© 2025 ClosingWindows Ltd · Demo data — not live ADS-B</p>
+    <div class="sync"><span class="sync-dot"></span>Simulation active</div>
+</div>
+
+<!-- airport datalist for autocomplete -->
+<datalist id="airportList"></datalist>
+
+<script>
+// ════════════════════════════════════════════════════════
+// AIRPORT DATABASE
+// ════════════════════════════════════════════════════════
+const AIRPORTS = {
+    // ── US Northeast ──────────────────────────────────────
+    JFK:  { name:'New York JFK',               coord:[40.6413, -73.7781] },
+    LGA:  { name:'New York LaGuardia',         coord:[40.7773, -73.8740] },
+    EWR:  { name:'Newark Intl',                coord:[40.6895, -74.1745] },
+    TEB:  { name:'Teterboro',                  coord:[40.8501, -74.0608] },
+    KTEB: { name:'Teterboro',                  coord:[40.8501, -74.0608] },
+    HPN:  { name:'Westchester County',         coord:[41.0670, -73.7076] },
+    MMU:  { name:'Morristown Municipal',       coord:[40.7995, -74.4149] },
+    CDW:  { name:'Caldwell Executive',         coord:[40.8752, -74.2826] },
+    ISP:  { name:'Long Island MacArthur',      coord:[40.7952, -73.1002] },
+    HVN:  { name:'New Haven Tweed',            coord:[41.2637, -72.8868] },
+    BDL:  { name:'Bradley Intl (Hartford)',    coord:[41.9389, -72.6832] },
+    PVD:  { name:'Providence T.F. Green',      coord:[41.7240, -71.4282] },
+    BOS:  { name:'Boston Logan',               coord:[42.3656, -71.0096] },
+    BED:  { name:'Hanscom Field (Boston)',     coord:[42.4700, -71.2890] },
+    MHT:  { name:'Manchester-Boston Regional', coord:[42.9326, -71.4357] },
+    ACK:  { name:'Nantucket Memorial',         coord:[41.2531, -70.0603] },
+    MVY:  { name:"Martha's Vineyard",          coord:[41.3931, -70.6154] },
+    HYA:  { name:'Barnstable (Cape Cod)',      coord:[41.6693, -70.2804] },
+    BGR:  { name:'Bangor Intl',                coord:[44.8074, -68.8281] },
+    PWM:  { name:'Portland Jetport',           coord:[43.6462, -70.3093] },
+    BTV:  { name:'Burlington Intl',            coord:[44.4719, -73.1533] },
+    ALB:  { name:'Albany Intl',                coord:[42.7483, -73.8017] },
+    SYR:  { name:'Syracuse Hancock Intl',      coord:[43.1112, -76.1063] },
+    ROC:  { name:'Greater Rochester Intl',     coord:[43.1189, -77.6724] },
+    BUF:  { name:'Buffalo Niagara Intl',       coord:[42.9405, -78.7322] },
+    ITH:  { name:'Ithaca Tompkins',            coord:[42.4910, -76.4584] },
+    PHL:  { name:'Philadelphia Intl',          coord:[39.8744, -75.2424] },
+    ABE:  { name:'Lehigh Valley Intl',         coord:[40.6521, -75.4408] },
+    MDT:  { name:'Harrisburg Intl',            coord:[40.1935, -76.7634] },
+    AVP:  { name:'Wilkes-Barre/Scranton Intl', coord:[41.3385, -75.7234] },
+    PIT:  { name:'Pittsburgh Intl',            coord:[40.4915, -80.2329] },
+    IAD:  { name:'Washington Dulles',          coord:[38.9531, -77.4565] },
+    DCA:  { name:'Washington Reagan',          coord:[38.8512, -77.4020] },
+    BWI:  { name:'Baltimore-Washington',       coord:[39.1754, -76.6683] },
+    RIC:  { name:'Richmond Intl',              coord:[37.5052, -77.3197] },
+    ORF:  { name:'Norfolk Intl',               coord:[36.8976, -76.0123] },
+    ROA:  { name:'Roanoke-Blacksburg Regional',coord:[37.3255, -79.9754] },
+    CHO:  { name:'Charlottesville-Albemarle',  coord:[38.1386, -78.4529] },
+    // ── US Southeast ──────────────────────────────────────
+    MIA:  { name:'Miami Intl',                 coord:[25.7959, -80.2870] },
+    FLL:  { name:'Fort Lauderdale-Hollywood',  coord:[26.0726, -80.1527] },
+    PBI:  { name:'Palm Beach Intl',            coord:[26.6832, -80.0956] },
+    KPBI: { name:'Palm Beach Intl',            coord:[26.6832, -80.0956] },
+    OPF:  { name:'Miami Opa-Locka Executive',  coord:[25.9070, -80.2784] },
+    MCO:  { name:'Orlando Intl',               coord:[28.4312, -81.3081] },
+    SFB:  { name:'Orlando Sanford Intl',       coord:[28.7776, -81.2375] },
+    ORL:  { name:'Orlando Executive',          coord:[28.5455, -81.3329] },
+    TPA:  { name:'Tampa Intl',                 coord:[27.9755, -82.5332] },
+    PIE:  { name:'St Pete-Clearwater Intl',    coord:[27.9102, -82.6874] },
+    RSW:  { name:'Southwest Florida Intl',     coord:[26.5362, -81.7552] },
+    APF:  { name:'Naples Municipal',           coord:[26.1526, -81.7753] },
+    EYW:  { name:'Key West Intl',              coord:[24.5561, -81.7596] },
+    DAB:  { name:'Daytona Beach Intl',         coord:[29.1799, -81.0581] },
+    GNV:  { name:'Gainesville Regional',       coord:[29.6900, -82.2717] },
+    TLH:  { name:'Tallahassee Intl',           coord:[30.3965, -84.3503] },
+    PNS:  { name:'Pensacola Intl',             coord:[30.4734, -87.1866] },
+    VPS:  { name:'Destin-Fort Walton Beach',   coord:[30.4832, -86.5254] },
+    ATL:  { name:'Hartsfield-Jackson',         coord:[33.6407, -84.4277] },
+    PDK:  { name:'Peachtree City Falcon Field', coord:[33.8756, -84.3020] },
+    SAV:  { name:'Savannah/Hilton Head Intl',  coord:[32.1276, -81.2021] },
+    AGS:  { name:'Augusta Regional',           coord:[33.3699, -81.9645] },
+    CLT:  { name:'Charlotte Douglas',          coord:[35.2140, -80.9431] },
+    RDU:  { name:'Raleigh-Durham',             coord:[35.8776, -78.7875] },
+    GSO:  { name:'Piedmont Triad Intl',        coord:[36.0978, -79.9373] },
+    GSP:  { name:'Greenville-Spartanburg Intl',coord:[34.8957, -82.2189] },
+    AVL:  { name:'Asheville Regional',         coord:[35.4362, -82.5418] },
+    ILM:  { name:'Wilmington Intl',            coord:[34.2706, -77.9026] },
+    CAE:  { name:'Columbia Metropolitan',      coord:[33.9389, -81.1195] },
+    CHS:  { name:'Charleston Intl',            coord:[32.8986, -80.0405] },
+    MYR:  { name:'Myrtle Beach Intl',          coord:[33.6797, -78.9283] },
+    HHH:  { name:'Hilton Head',                coord:[32.2244, -80.6975] },
+    BHM:  { name:'Birmingham-Shuttlesworth',   coord:[33.5629, -86.7535] },
+    HSV:  { name:'Huntsville Intl',            coord:[34.6372, -86.7751] },
+    MGM:  { name:'Montgomery Regional',        coord:[32.3006, -86.3940] },
+    MOB:  { name:'Mobile Regional',            coord:[30.6912, -88.2428] },
+    MSY:  { name:'New Orleans Intl',           coord:[29.9934, -90.2580] },
+    BTR:  { name:'Baton Rouge Metro',          coord:[30.5332, -91.1496] },
+    SHV:  { name:'Shreveport Regional',        coord:[32.4466, -93.8256] },
+    LFT:  { name:'Lafayette Regional',         coord:[30.2053, -91.9876] },
+    JAN:  { name:'Jackson-Medgar Wiley Evers', coord:[32.3112, -90.0759] },
+    GPT:  { name:'Gulfport-Biloxi Intl',       coord:[30.4073, -89.0701] },
+    BNA:  { name:'Nashville Intl',             coord:[36.1245, -86.6782] },
+    CHA:  { name:'Chattanooga Metropolitan',   coord:[35.0353, -85.2038] },
+    TYS:  { name:'McGhee Tyson (Knoxville)',   coord:[35.8110, -83.9940] },
+    MEM:  { name:'Memphis Intl',               coord:[35.0424, -89.9767] },
+    // ── US Central ────────────────────────────────────────
+    ORD:  { name:"Chicago O'Hare",             coord:[41.9742, -87.9073] },
+    MDW:  { name:'Chicago Midway',             coord:[41.7868, -87.7522] },
+    PWK:  { name:'Chicago Executive (Palwaukee)',coord:[42.1142,-87.9015] },
+    DTW:  { name:'Detroit Metro',              coord:[42.2124, -83.3534] },
+    PTK:  { name:'Oakland County Intl',        coord:[42.6655, -83.4201] },
+    GRR:  { name:'Gerald R. Ford Intl',        coord:[42.8808, -85.5228] },
+    LAN:  { name:'Capital Region Intl (Lansing)',coord:[42.7787,-84.5874] },
+    FNT:  { name:'Bishop Intl (Flint)',        coord:[42.9658, -83.7436] },
+    MKE:  { name:'Milwaukee Mitchell Intl',    coord:[42.9472, -87.8966] },
+    MSN:  { name:'Dane County Regional',       coord:[43.1399, -89.3375] },
+    GRB:  { name:'Green Bay Austin Straubel',  coord:[44.4851, -88.1296] },
+    MSP:  { name:'Minneapolis-Saint Paul',     coord:[44.8820, -93.2218] },
+    FCM:  { name:'Flying Cloud (Minneapolis)', coord:[44.8272, -93.4572] },
+    DSM:  { name:'Des Moines Intl',            coord:[41.5340, -93.6631] },
+    CID:  { name:'Eastern Iowa (Cedar Rapids)',coord:[41.8842, -91.7108] },
+    OMA:  { name:'Eppley Airfield (Omaha)',    coord:[41.3032, -95.8941] },
+    LNK:  { name:'Lincoln Airport',            coord:[40.8510, -96.7592] },
+    ICT:  { name:'Wichita Dwight D. Eisenhower',coord:[37.6499,-97.4331] },
+    MCI:  { name:'Kansas City Intl',           coord:[39.2976, -94.7139] },
+    SGF:  { name:'Springfield-Branson National',coord:[37.2457,-93.3886] },
+    STL:  { name:'St. Louis Lambert',          coord:[38.7487, -90.3700] },
+    IND:  { name:'Indianapolis Intl',          coord:[39.7173, -86.2944] },
+    CMH:  { name:'John Glenn Columbus Intl',   coord:[39.9980, -82.8919] },
+    CLE:  { name:'Cleveland Hopkins Intl',     coord:[41.4117, -81.8498] },
+    CAK:  { name:'Akron-Canton Regional',      coord:[40.9161, -81.4422] },
+    DAY:  { name:'Dayton Intl',                coord:[39.9024, -84.2194] },
+    CVG:  { name:'Cincinnati/Northern Kentucky',coord:[39.0488,-84.6678] },
+    SDF:  { name:'Louisville Muhammad Ali Intl',coord:[38.1744,-85.7360] },
+    TUL:  { name:'Tulsa Intl',                 coord:[36.1984, -95.8881] },
+    OKC:  { name:'Will Rogers World',          coord:[35.3931, -97.6007] },
+    IAH:  { name:'Houston Intercontinental',   coord:[29.9902, -95.3368] },
+    HOU:  { name:'Houston Hobby',              coord:[29.6454, -95.2789] },
+    ADS:  { name:'Addison Airport (Dallas)',   coord:[32.9686, -96.8364] },
+    DAL:  { name:'Dallas Love Field',          coord:[32.8481, -96.8512] },
+    DFW:  { name:'Dallas/Fort Worth',          coord:[32.8998, -97.0403] },
+    AUS:  { name:'Austin-Bergstrom',           coord:[30.1975, -97.6664] },
+    SAT:  { name:'San Antonio Intl',           coord:[29.5337, -98.4698] },
+    // ── US Mountain / West ────────────────────────────────
+    DEN:  { name:'Denver Intl',                coord:[39.8561,-104.6737] },
+    APA:  { name:'Centennial Airport (Denver)',coord:[39.5701,-104.8492] },
+    COS:  { name:'Colorado Springs Airport',   coord:[38.8059,-104.7008] },
+    ASE:  { name:'Aspen/Pitkin County',        coord:[39.2232,-106.8688] },
+    EGE:  { name:'Eagle County Regional (Vail)',coord:[39.6426,-106.9177] },
+    GJT:  { name:'Grand Junction Regional',    coord:[39.1224,-108.5267] },
+    MTJ:  { name:'Montrose Regional',          coord:[38.5098,-107.8938] },
+    GUC:  { name:'Gunnison-Crested Butte',     coord:[38.5339,-106.9330] },
+    TEX:  { name:'Telluride Regional',         coord:[37.9539,-107.9087] },
+    DRO:  { name:'Durango-La Plata County',    coord:[37.1515,-107.7540] },
+    SLC:  { name:'Salt Lake City Intl',        coord:[40.7899,-111.9791] },
+    SUN:  { name:'Friedman Memorial (Sun Valley)',coord:[43.5044,-114.2963] },
+    JAC:  { name:'Jackson Hole',               coord:[43.6073,-110.7377] },
+    BZN:  { name:'Bozeman Yellowstone Intl',   coord:[45.7775,-111.1603] },
+    MSO:  { name:'Missoula Montana',           coord:[46.9163,-114.0906] },
+    GTF:  { name:'Great Falls Intl',           coord:[47.4820,-111.3709] },
+    BIL:  { name:'Billings Logan Intl',        coord:[45.8077,-108.5428] },
+    HLN:  { name:'Helena Regional',            coord:[46.6068,-111.9830] },
+    BOI:  { name:'Boise Airport',              coord:[43.5644,-116.2228] },
+    SUN2: { name:'Hailey (Sun Valley) ID',     coord:[43.5044,-114.2963] },
+    PHX:  { name:'Phoenix Sky Harbor',         coord:[33.4373,-112.0078] },
+    SDL:  { name:'Scottsdale Airport',         coord:[33.6229,-111.9111] },
+    DVT:  { name:'Phoenix Deer Valley',        coord:[33.6883,-112.0832] },
+    TUS:  { name:'Tucson Intl',                coord:[32.1161,-110.9410] },
+    ABQ:  { name:'Albuquerque Intl Sunport',   coord:[35.0402,-106.6090] },
+    ELP:  { name:'El Paso Intl',               coord:[31.8072,-106.3779] },
+    LAS:  { name:'Harry Reid Intl',            coord:[36.0840,-115.1537] },
+    HND:  { name:'Henderson Executive',        coord:[35.9728,-115.1344] },
+    VGT:  { name:'North Las Vegas Airport',    coord:[36.2121,-115.1944] },
+    SEA:  { name:'Seattle-Tacoma',             coord:[47.4502,-122.3088] },
+    BFI:  { name:'King County Intl (Boeing Field)',coord:[47.5300,-122.3019] },
+    BLI:  { name:'Bellingham Intl',            coord:[48.7928,-122.5376] },
+    GEG:  { name:'Spokane Intl',               coord:[47.6199,-117.5334] },
+    PDX:  { name:'Portland Intl',              coord:[45.5887,-122.5975] },
+    HIO:  { name:'Portland Hillsboro Airport', coord:[45.5404,-122.9498] },
+    RDM:  { name:'Redmond (Bend) Airport',     coord:[44.2541,-121.1500] },
+    MFR:  { name:'Medford-Jackson County',     coord:[42.3742,-122.8735] },
+    EUG:  { name:'Eugene Airport',             coord:[44.1246,-123.2119] },
+    SFO:  { name:'San Francisco Intl',         coord:[37.6213,-122.3790] },
+    SJC:  { name:'San Jose Mineta',            coord:[37.3626,-121.9290] },
+    OAK:  { name:'Oakland Intl',               coord:[37.7213,-122.2208] },
+    PAO:  { name:'Palo Alto Airport',          coord:[37.4613,-122.1149] },
+    SMF:  { name:'Sacramento Intl',            coord:[38.6954,-121.5908] },
+    FAT:  { name:'Fresno Yosemite Intl',       coord:[36.7762,-119.7181] },
+    MRY:  { name:'Monterey Regional',          coord:[36.5870,-121.8430] },
+    SBA:  { name:'Santa Barbara Municipal',    coord:[34.4262,-119.8406] },
+    SBP:  { name:'San Luis Obispo County',     coord:[35.2368,-120.6417] },
+    LAX:  { name:'Los Angeles Intl',           coord:[33.9425,-118.4081] },
+    BUR:  { name:'Hollywood Burbank Airport',  coord:[34.2007,-118.3587] },
+    VNY:  { name:'Van Nuys Airport',           coord:[34.2098,-118.4899] },
+    LGB:  { name:'Long Beach Airport',         coord:[33.8177,-118.1516] },
+    SNA:  { name:'John Wayne Orange County',   coord:[33.6757,-117.8682] },
+    PSP:  { name:'Palm Springs Intl',          coord:[33.8297,-116.5076] },
+    SAN:  { name:'San Diego Intl',             coord:[32.7336,-117.1897] },
+    CLD:  { name:'McClellan-Palomar (Carlsbad)',coord:[33.1283,-117.2800] },
+    // ── US Alaska & Hawaii ────────────────────────────────
+    ANC:  { name:'Ted Stevens Anchorage',      coord:[61.1744,-149.9963] },
+    FAI:  { name:'Fairbanks Intl',             coord:[64.8151,-147.8561] },
+    JNU:  { name:'Juneau Intl',                coord:[58.3550,-134.5763] },
+    HNL:  { name:'Daniel K. Inouye (Honolulu)',coord:[21.3187,-157.9224] },
+    OGG:  { name:'Kahului (Maui)',             coord:[20.8986,-156.4305] },
+    KOA:  { name:'Ellison Onizuka Kona',       coord:[19.7388,-156.0456] },
+    LIH:  { name:'Lihue (Kauai)',              coord:[21.9760,-159.3380] },
+    // ── Caribbean ─────────────────────────────────────────
+    NAS:  { name:'Lynden Pindling Intl (Nassau)',coord:[25.0390,-77.4662] },
+    GGT:  { name:'Exuma Intl',                 coord:[23.5626, -75.8779] },
+    ELH:  { name:'North Eleuthera',            coord:[25.4749, -76.6835] },
+    MHH:  { name:'Marsh Harbour (Abaco)',      coord:[26.5114, -77.0835] },
+    SXM:  { name:'Princess Juliana (St Maarten)',coord:[18.0410,-63.1089] },
+    AXA:  { name:'Clayton J. Lloyd (Anguilla)',coord:[18.2048, -63.0551] },
+    BQN:  { name:'Rafael Hernandez (Puerto Rico)',coord:[18.4949,-67.1294] },
+    SJU:  { name:'Luis Munoz Marin (San Juan)',coord:[18.4394, -66.0018] },
+    STT:  { name:'Cyril E. King (St. Thomas)', coord:[18.3373, -64.9733] },
+    STX:  { name:'Henry E. Rohlsen (St. Croix)',coord:[17.7019,-64.7985] },
+    BGI:  { name:'Grantley Adams (Barbados)',  coord:[13.0746, -59.4925] },
+    GND:  { name:'Maurice Bishop (Grenada)',   coord:[12.0042, -61.7862] },
+    POS:  { name:'Piarco Intl (Trinidad)',     coord:[10.5954, -61.3372] },
+    ANU:  { name:'V.C. Bird Intl (Antigua)',   coord:[17.1367, -61.7927] },
+    SKB:  { name:'Robert L. Bradshaw (St Kitts)',coord:[17.3112,-62.7188] },
+    UVF:  { name:'Hewanorra Intl (St Lucia)',  coord:[13.7332, -60.9526] },
+    SVD:  { name:'Argyle (St Vincent)',        coord:[13.1456, -61.1499] },
+    TAB:  { name:'ANR Robinson Intl (Tobago)', coord:[11.1497, -60.8322] },
+    MBJ:  { name:'Sangster Intl (Montego Bay)',coord:[18.5037, -77.9134] },
+    KIN:  { name:'Norman Manley Intl (Kingston)',coord:[17.9357,-76.7875] },
+    HAV:  { name:'Jose Marti Intl (Havana)',   coord:[22.9892, -82.4091] },
+    PUJ:  { name:'Punta Cana Intl',            coord:[18.5674, -68.3634] },
+    SDQ:  { name:'Las Americas Intl (Santo Domingo)',coord:[18.4297,-69.6689] },
+    PAP:  { name:'Toussaint Louverture (Port-au-Prince)',coord:[18.5799,-72.2925] },
+    CUR:  { name:'Hato Intl (Curacao)',        coord:[12.1889, -68.9598] },
+    AUA:  { name:'Queen Beatrix Intl (Aruba)', coord:[12.5014, -70.0152] },
+    GCM:  { name:'Owen Roberts (Grand Cayman)',coord:[19.2928, -81.3577] },
+    // ── Europe ────────────────────────────────────────────
+    EGLL: { name:'London Heathrow',            coord:[51.4775,  -0.4614] },
+    LHR:  { name:'London Heathrow',            coord:[51.4775,  -0.4614] },
+    EGKK: { name:'London Gatwick',             coord:[51.1481,  -0.1903] },
+    LGW:  { name:'London Gatwick',             coord:[51.1481,  -0.1903] },
+    EGGW: { name:'London Luton',               coord:[51.8747,  -0.3683] },
+    LTN:  { name:'London Luton',               coord:[51.8747,  -0.3683] },
+    EGSS: { name:'London Stansted',            coord:[51.8850,   0.2350] },
+    STN:  { name:'London Stansted',            coord:[51.8850,   0.2350] },
+    EGLF: { name:'Farnborough Airport',        coord:[51.2775,  -0.7764] },
+    FAB:  { name:'Farnborough Airport',        coord:[51.2775,  -0.7764] },
+    EGMC: { name:'Southend Airport',           coord:[51.5714,   0.6956] },
+    SEN:  { name:'Southend Airport',           coord:[51.5714,   0.6956] },
+    EGPD: { name:'Aberdeen',                   coord:[57.2019,  -2.1978] },
+    ABZ:  { name:'Aberdeen',                   coord:[57.2019,  -2.1978] },
+    EGPH: { name:'Edinburgh',                  coord:[55.9500,  -3.3725] },
+    EDI:  { name:'Edinburgh',                  coord:[55.9500,  -3.3725] },
+    EGPF: { name:'Glasgow',                    coord:[55.8719,  -4.4331] },
+    GLA:  { name:'Glasgow',                    coord:[55.8719,  -4.4331] },
+    EGNM: { name:'Leeds Bradford',             coord:[53.8659,  -1.6606] },
+    LBA:  { name:'Leeds Bradford',             coord:[53.8659,  -1.6606] },
+    EGCC: { name:'Manchester',                 coord:[53.3537,  -2.2750] },
+    MAN:  { name:'Manchester',                 coord:[53.3537,  -2.2750] },
+    EGGD: { name:'Bristol',                    coord:[51.3827,  -2.7191] },
+    BRS:  { name:'Bristol',                    coord:[51.3827,  -2.7191] },
+    EGHI: { name:'Southampton',                coord:[50.9503,  -1.3568] },
+    SOU:  { name:'Southampton',                coord:[50.9503,  -1.3568] },
+    LFPG: { name:'Paris CDG',                  coord:[49.0097,   2.5479] },
+    CDG:  { name:'Paris CDG',                  coord:[49.0097,   2.5479] },
+    LFPB: { name:'Paris Le Bourget',           coord:[48.9694,   2.4414] },
+    LBG:  { name:'Paris Le Bourget',           coord:[48.9694,   2.4414] },
+    LFPO: { name:'Paris Orly',                 coord:[48.7233,   2.3794] },
+    ORY:  { name:'Paris Orly',                 coord:[48.7233,   2.3794] },
+    NCE:  { name:'Nice Côte dAzur',           coord:[43.6584,   7.2159] },
+    LFLL: { name:'Lyon Saint-Exupéry',         coord:[45.7256,   5.0811] },
+    LYS:  { name:'Lyon Saint-Exupéry',         coord:[45.7256,   5.0811] },
+    LFBO: { name:'Toulouse-Blagnac',           coord:[43.6293,   1.3638] },
+    TLS:  { name:'Toulouse-Blagnac',           coord:[43.6293,   1.3638] },
+    LFBD: { name:'Bordeaux-Mérignac',          coord:[44.8283,  -0.7156] },
+    BOD:  { name:'Bordeaux-Mérignac',          coord:[44.8283,  -0.7156] },
+    LSGG: { name:'Geneva Intl',                coord:[46.2380,   6.1089] },
+    GVA:  { name:'Geneva Intl',                coord:[46.2380,   6.1089] },
+    LSZA: { name:'Lugano',                     coord:[46.0043,   8.9106] },
+    LUG:  { name:'Lugano',                     coord:[46.0043,   8.9106] },
+    LSZH: { name:'Zurich',                     coord:[47.4647,   8.5492] },
+    ZRH:  { name:'Zurich',                     coord:[47.4647,   8.5492] },
+    LSZB: { name:'Bern-Belp',                  coord:[46.9141,   7.4972] },
+    BRN:  { name:'Bern-Belp',                  coord:[46.9141,   7.4972] },
+    EDDF: { name:'Frankfurt Main',             coord:[50.0379,   8.5622] },
+    FRA:  { name:'Frankfurt Main',             coord:[50.0379,   8.5622] },
+    EDDM: { name:'Munich',                     coord:[48.3538,  11.7861] },
+    MUC:  { name:'Munich',                     coord:[48.3538,  11.7861] },
+    EDDB: { name:'Berlin Brandenburg',         coord:[52.3667,  13.5033] },
+    BER:  { name:'Berlin Brandenburg',         coord:[52.3667,  13.5033] },
+    EDDH: { name:'Hamburg',                    coord:[53.6304,   9.9882] },
+    HAM:  { name:'Hamburg',                    coord:[53.6304,   9.9882] },
+    EDDK: { name:'Cologne/Bonn',               coord:[50.8659,   7.1427] },
+    CGN:  { name:'Cologne/Bonn',               coord:[50.8659,   7.1427] },
+    EDDL: { name:'Düsseldorf',                 coord:[51.2895,   6.7668] },
+    DUS:  { name:'Düsseldorf',                 coord:[51.2895,   6.7668] },
+    EDDN: { name:'Nuremberg',                  coord:[49.4987,  11.0669] },
+    NUE:  { name:'Nuremberg',                  coord:[49.4987,  11.0669] },
+    EDDS: { name:'Stuttgart',                  coord:[48.6900,   9.2219] },
+    STR:  { name:'Stuttgart',                  coord:[48.6900,   9.2219] },
+    EHAM: { name:'Amsterdam Schiphol',         coord:[52.3105,   4.7683] },
+    AMS:  { name:'Amsterdam Schiphol',         coord:[52.3105,   4.7683] },
+    EHRD: { name:'Rotterdam The Hague',        coord:[51.9569,   4.4372] },
+    RTM:  { name:'Rotterdam The Hague',        coord:[51.9569,   4.4372] },
+    EBCI: { name:'Brussels South Charleroi',   coord:[50.4592,   4.4582] },
+    CRL:  { name:'Brussels South Charleroi',   coord:[50.4592,   4.4582] },
+    EBBR: { name:'Brussels',                   coord:[50.9014,   4.4844] },
+    BRU:  { name:'Brussels',                   coord:[50.9014,   4.4844] },
+    ELLX: { name:'Luxembourg',                 coord:[49.6233,   6.2044] },
+    LUX:  { name:'Luxembourg',                 coord:[49.6233,   6.2044] },
+    LEMD: { name:'Madrid Barajas',             coord:[40.4936,  -3.5668] },
+    MAD:  { name:'Madrid Barajas',             coord:[40.4936,  -3.5668] },
+    LEBL: { name:'Barcelona El Prat',          coord:[41.2971,   2.0785] },
+    BCN:  { name:'Barcelona El Prat',          coord:[41.2971,   2.0785] },
+    LEAL: { name:'Alicante-Elche',             coord:[38.2822,  -0.5582] },
+    ALC:  { name:'Alicante-Elche',             coord:[38.2822,  -0.5582] },
+    LEMG: { name:'Málaga-Costa del Sol',       coord:[36.6749,  -4.4991] },
+    AGP:  { name:'Málaga-Costa del Sol',       coord:[36.6749,  -4.4991] },
+    GCFV: { name:'Fuerteventura',              coord:[28.4527, -13.8638] },
+    FUE:  { name:'Fuerteventura',              coord:[28.4527, -13.8638] },
+    GCTS: { name:'Tenerife South',             coord:[28.0445, -16.5725] },
+    TFS:  { name:'Tenerife South',             coord:[28.0445, -16.5725] },
+    GCLP: { name:'Gran Canaria',               coord:[27.9319, -15.3866] },
+    LPA:  { name:'Gran Canaria',               coord:[27.9319, -15.3866] },
+    LIRF: { name:'Rome Fiumicino',             coord:[41.8003,  12.2389] },
+    FCO:  { name:'Rome Fiumicino',             coord:[41.8003,  12.2389] },
+    LIML: { name:'Milan Linate',               coord:[45.4455,   9.2767] },
+    LIN:  { name:'Milan Linate',               coord:[45.4455,   9.2767] },
+    LIMC: { name:'Milan Malpensa',             coord:[45.6306,   8.7281] },
+    MXP:  { name:'Milan Malpensa',             coord:[45.6306,   8.7281] },
+    LIME: { name:'Milan Bergamo',              coord:[45.6739,   9.7042] },
+    BGY:  { name:'Milan Bergamo',              coord:[45.6739,   9.7042] },
+    LIPZ: { name:'Venice Marco Polo',          coord:[45.5053,  12.3519] },
+    VCE:  { name:'Venice Marco Polo',          coord:[45.5053,  12.3519] },
+    LIPE: { name:'Bologna Guglielmo Marconi',  coord:[44.5354,  11.2887] },
+    BLQ:  { name:'Bologna Marconi',            coord:[44.5354,  11.2887] },
+    LICJ: { name:'Palermo Falcone-Borsellino', coord:[38.1759,  13.0910] },
+    PMO:  { name:'Palermo',                    coord:[38.1759,  13.0910] },
+    LOWW: { name:'Vienna Intl',                coord:[48.1102,  16.5697] },
+    VIE:  { name:'Vienna Intl',                coord:[48.1102,  16.5697] },
+    LKPR: { name:'Prague Vaclav Havel',        coord:[50.1008,  14.2600] },
+    PRG:  { name:'Prague',                     coord:[50.1008,  14.2600] },
+    EPWA: { name:'Warsaw Chopin',              coord:[52.1657,  20.9671] },
+    WAW:  { name:'Warsaw Chopin',              coord:[52.1657,  20.9671] },
+    EPKK: { name:'Kraków John Paul II',        coord:[50.0777,  19.7848] },
+    KRK:  { name:'Kraków',                     coord:[50.0777,  19.7848] },
+    LHBP: { name:'Budapest Ferenc Liszt',      coord:[47.4369,  19.2556] },
+    BUD:  { name:'Budapest',                   coord:[47.4369,  19.2556] },
+    LRBS: { name:'Bucharest Henri Coanda',     coord:[44.5711,  26.0850] },
+    OTP:  { name:'Bucharest',                  coord:[44.5711,  26.0850] },
+    LGAV: { name:'Athens Eleftherios Venizelos',coord:[37.9364, 23.9445] },
+    ATH:  { name:'Athens',                     coord:[37.9364,  23.9445] },
+    LGSK: { name:'Skiathos',                   coord:[39.1772,  23.5037] },
+    JSI:  { name:'Skiathos',                   coord:[39.1772,  23.5037] },
+    LGMY: { name:'Mykonos',                    coord:[37.4351,  25.3481] },
+    JMK:  { name:'Mykonos',                    coord:[37.4351,  25.3481] },
+    LGSA: { name:'Heraklion (Crete)',          coord:[35.3397,  25.1803] },
+    HER:  { name:'Heraklion',                  coord:[35.3397,  25.1803] },
+    LGKR: { name:'Corfu',                      coord:[39.6019,  19.9117] },
+    CFU:  { name:'Corfu',                      coord:[39.6019,  19.9117] },
+    LGSM: { name:'Samos',                      coord:[37.6900,  26.9117] },
+    SMI:  { name:'Samos',                      coord:[37.6900,  26.9117] },
+    LGRP: { name:'Rhodes Diagoras',            coord:[36.4054,  28.0862] },
+    RHO:  { name:'Rhodes',                     coord:[36.4054,  28.0862] },
+    LTBA: { name:'Istanbul Ataturk',           coord:[40.9769,  28.8146] },
+    IST:  { name:'Istanbul',                   coord:[41.2753,  28.7519] },
+    LTFM: { name:'Istanbul Airport (New)',     coord:[41.2753,  28.7519] },
+    LTAC: { name:'Ankara Esenboga',            coord:[40.1281,  32.9951] },
+    ESB:  { name:'Ankara',                     coord:[40.1281,  32.9951] },
+    LTAI: { name:'Antalya',                    coord:[36.8987,  30.7992] },
+    AYT:  { name:'Antalya',                    coord:[36.8987,  30.7992] },
+    LTBS: { name:'Dalaman',                    coord:[36.7131,  28.7925] },
+    DLM:  { name:'Dalaman',                    coord:[36.7131,  28.7925] },
+    LTBJ: { name:'Izmir Adnan Menderes',       coord:[38.2924,  27.1570] },
+    ADB:  { name:'Izmir',                      coord:[38.2924,  27.1570] },
+    LPPT: { name:'Lisbon Portela',             coord:[38.7813,  -9.1359] },
+    LIS:  { name:'Lisbon',                     coord:[38.7813,  -9.1359] },
+    LPFR: { name:'Faro',                       coord:[37.0144,  -7.9659] },
+    FAO:  { name:'Faro',                       coord:[37.0144,  -7.9659] },
+    LPMA: { name:'Madeira (Funchal)',          coord:[32.6979, -16.7745] },
+    FNC:  { name:'Funchal (Madeira)',          coord:[32.6979, -16.7745] },
+    GVNP: { name:'Praia (Cape Verde)',         coord:[14.9245, -23.4935] },
+    RAI:  { name:'Praia (Cape Verde)',         coord:[14.9245, -23.4935] },
+    LFRS: { name:'Nantes Atlantique',          coord:[47.1532,  -1.6103] },
+    NTE:  { name:'Nantes',                     coord:[47.1532,  -1.6103] },
+    LFML: { name:'Marseille Provence',         coord:[43.4393,   5.2214] },
+    MRS:  { name:'Marseille',                  coord:[43.4393,   5.2214] },
+    LFSB: { name:'EuroAirport Basel Mulhouse', coord:[47.5896,   7.5290] },
+    BSL:  { name:'Basel/Mulhouse',             coord:[47.5896,   7.5290] },
+    ENBR: { name:'Bergen Flesland',            coord:[60.2934,   5.2181] },
+    BGO:  { name:'Bergen',                     coord:[60.2934,   5.2181] },
+    ENGM: { name:'Oslo Gardermoen',            coord:[60.1939,  11.1004] },
+    OSL:  { name:'Oslo',                       coord:[60.1939,  11.1004] },
+    ENVA: { name:'Trondheim Vaernes',          coord:[63.4578,  10.9239] },
+    TRD:  { name:'Trondheim',                  coord:[63.4578,  10.9239] },
+    ESSA: { name:'Stockholm Arlanda',          coord:[59.6519,  17.9186] },
+    ARN:  { name:'Stockholm Arlanda',          coord:[59.6519,  17.9186] },
+    ESKN: { name:'Stockholm Skavsta',          coord:[58.7886,  16.9122] },
+    NYO:  { name:'Stockholm Skavsta',          coord:[58.7886,  16.9122] },
+    ESGG: { name:'Gothenburg Landvetter',      coord:[57.6628,  12.2798] },
+    GOT:  { name:'Gothenburg',                 coord:[57.6628,  12.2798] },
+    EKCH: { name:'Copenhagen Kastrup',         coord:[55.6181,  12.6561] },
+    CPH:  { name:'Copenhagen',                 coord:[55.6181,  12.6561] },
+    EFHK: { name:'Helsinki-Vantaa',            coord:[60.3172,  24.9633] },
+    HEL:  { name:'Helsinki',                   coord:[60.3172,  24.9633] },
+    UUEE: { name:'Moscow Sheremetyevo',        coord:[55.9726,  37.4146] },
+    SVO:  { name:'Moscow Sheremetyevo',        coord:[55.9726,  37.4146] },
+    UUWW: { name:'Moscow Vnukovo',             coord:[55.5915,  37.2615] },
+    VKO:  { name:'Moscow Vnukovo',             coord:[55.5915,  37.2615] },
+    ULLI: { name:'St. Petersburg Pulkovo',     coord:[59.8003,  30.2625] },
+    LED:  { name:'St. Petersburg',             coord:[59.8003,  30.2625] },
+    UKBB: { name:'Kyiv Boryspil',              coord:[50.3450,  30.8947] },
+    KBP:  { name:'Kyiv Boryspil',              coord:[50.3450,  30.8947] },
+    // ── Middle East ───────────────────────────────────────
+    OMDB: { name:'Dubai Intl',                 coord:[25.2532,  55.3657] },
+    DXB:  { name:'Dubai Intl',                 coord:[25.2532,  55.3657] },
+    OMDW: { name:'Dubai Al Maktoum (DWC)',     coord:[24.8961,  55.1614] },
+    DWC:  { name:'Dubai Al Maktoum',           coord:[24.8961,  55.1614] },
+    OMAD: { name:'Abu Dhabi Intl',             coord:[24.4330,  54.6511] },
+    AUH:  { name:'Abu Dhabi Intl',             coord:[24.4330,  54.6511] },
+    OMAL: { name:'Al Ain Intl',                coord:[24.2617,  55.6092] },
+    AAN:  { name:'Al Ain Intl',                coord:[24.2617,  55.6092] },
+    OMSJ: { name:'Sharjah Intl',               coord:[25.3286,  55.5172] },
+    SHJ:  { name:'Sharjah Intl',               coord:[25.3286,  55.5172] },
+    OMRK: { name:'Ras Al Khaimah',             coord:[25.6135,  55.9388] },
+    RKT:  { name:'Ras Al Khaimah',             coord:[25.6135,  55.9388] },
+    OTHH: { name:'Doha Hamad Intl',            coord:[25.2731,  51.6088] },
+    DOH:  { name:'Doha Hamad Intl',            coord:[25.2731,  51.6088] },
+    OTBD: { name:'Doha International (old)',   coord:[25.2611,  51.5651] },
+    OKBK: { name:'Kuwait Intl',                coord:[29.2267,  47.9689] },
+    KWI:  { name:'Kuwait Intl',                coord:[29.2267,  47.9689] },
+    OBBI: { name:'Bahrain Intl',               coord:[26.2708,  50.6336] },
+    BAH:  { name:'Bahrain Intl',               coord:[26.2708,  50.6336] },
+    OEJN: { name:'Jeddah King Abdulaziz',      coord:[21.6796,  39.1565] },
+    JED:  { name:'Jeddah',                     coord:[21.6796,  39.1565] },
+    OERK: { name:'Riyadh King Khalid',         coord:[24.9576,  46.6988] },
+    RUH:  { name:'Riyadh',                     coord:[24.9576,  46.6988] },
+    OEDF: { name:'Dammam King Fahd',           coord:[26.4712,  49.7979] },
+    DMM:  { name:'Dammam',                     coord:[26.4712,  49.7979] },
+    OEMA: { name:'Medina Prince Mohammad',     coord:[24.5534,  39.7051] },
+    MED:  { name:'Medina',                     coord:[24.5534,  39.7051] },
+    OEAB: { name:'Abha Regional',              coord:[18.2404,  42.6566] },
+    AHB:  { name:'Abha',                       coord:[18.2404,  42.6566] },
+    OYAA: { name:'Aden Intl',                  coord:[12.8295,  45.0288] },
+    ADE:  { name:'Aden',                       coord:[12.8295,  45.0288] },
+    OOSA: { name:'Salalah',                    coord:[17.0381,  54.0913] },
+    SLL:  { name:'Salalah (Oman)',             coord:[17.0381,  54.0913] },
+    OOMS: { name:'Muscat Seeb Intl',           coord:[23.5933,  58.2844] },
+    MCT:  { name:'Muscat',                     coord:[23.5933,  58.2844] },
+    OIIE: { name:'Tehran Imam Khomeini',       coord:[35.4161,  51.1522] },
+    IKA:  { name:'Tehran',                     coord:[35.4161,  51.1522] },
+    OIII: { name:'Tehran Mehrabad',            coord:[35.6892,  51.3134] },
+    THR:  { name:'Tehran Mehrabad',            coord:[35.6892,  51.3134] },
+    OIBB: { name:'Bushehr',                    coord:[28.9448,  50.8346] },
+    BUZ:  { name:'Bushehr',                    coord:[28.9448,  50.8346] },
+    OIKB: { name:'Bandar Abbas',               coord:[27.2183,  56.3778] },
+    BND:  { name:'Bandar Abbas',               coord:[27.2183,  56.3778] },
+    OLBA: { name:'Beirut Rafic Hariri Intl',   coord:[33.8209,  35.4884] },
+    BEY:  { name:'Beirut',                     coord:[33.8209,  35.4884] },
+    OSDI: { name:'Damascus Intl',              coord:[33.4115,  36.5156] },
+    DAM:  { name:'Damascus',                   coord:[33.4115,  36.5156] },
+    ORBI: { name:'Baghdad Intl',               coord:[33.2625,  44.2346] },
+    BGW:  { name:'Baghdad',                    coord:[33.2625,  44.2346] },
+    ORER: { name:'Erbil Intl',                 coord:[36.2376,  43.9632] },
+    EBL:  { name:'Erbil',                      coord:[36.2376,  43.9632] },
+    LLBG: { name:'Ben Gurion (Tel Aviv)',       coord:[32.0114,  34.8867] },
+    TLV:  { name:'Tel Aviv',                   coord:[32.0114,  34.8867] },
+    LLHA: { name:'Haifa',                      coord:[32.8094,  35.0432] },
+    HFA:  { name:'Haifa',                      coord:[32.8094,  35.0432] },
+    OJAM: { name:'Amman Queen Alia',           coord:[31.7226,  35.9932] },
+    AMM:  { name:'Amman',                      coord:[31.7226,  35.9932] },
+    // ── South & Southeast Asia ────────────────────────────
+    OMAA: { name:'Abu Dhabi Intl',             coord:[24.4330,  54.6511] },
+    VABB: { name:'Mumbai Chhatrapati Shivaji', coord:[19.0896,  72.8656] },
+    BOM:  { name:'Mumbai',                     coord:[19.0896,  72.8656] },
+    VIDP: { name:'Delhi Indira Gandhi',        coord:[28.5562,  77.1000] },
+    DEL:  { name:'Delhi',                      coord:[28.5562,  77.1000] },
+    VOBG: { name:'Bengaluru Kempegowda',       coord:[13.1986,  77.7066] },
+    BLR:  { name:'Bengaluru',                  coord:[13.1986,  77.7066] },
+    VOMM: { name:'Chennai Intl',               coord:[12.9900,  80.1693] },
+    MAA:  { name:'Chennai',                    coord:[12.9900,  80.1693] },
+    VOHY: { name:'Hyderabad Rajiv Gandhi',     coord:[17.2313,  78.4298] },
+    HYD:  { name:'Hyderabad',                  coord:[17.2313,  78.4298] },
+    VECC: { name:'Kolkata Netaji Subhash',     coord:[22.6547,  88.4467] },
+    CCU:  { name:'Kolkata',                    coord:[22.6547,  88.4467] },
+    VCBI: { name:'Colombo Bandaranaike',       coord:[ 7.1808,  79.8841] },
+    CMB:  { name:'Colombo',                    coord:[ 7.1808,  79.8841] },
+    VHHH: { name:'Hong Kong Intl',             coord:[22.3080, 113.9185] },
+    HKG:  { name:'Hong Kong Intl',             coord:[22.3080, 113.9185] },
+    VMMC: { name:'Macau Intl',                 coord:[22.1496, 113.5916] },
+    MFM:  { name:'Macau Intl',                 coord:[22.1496, 113.5916] },
+    RJTT: { name:'Tokyo Haneda',               coord:[35.5494, 139.7798] },
+    HND:  { name:'Tokyo Haneda',               coord:[35.5494, 139.7798] },
+    RJAA: { name:'Tokyo Narita',               coord:[35.7720, 140.3929] },
+    NRT:  { name:'Tokyo Narita',               coord:[35.7720, 140.3929] },
+    RJOO: { name:'Osaka Itami',                coord:[34.7855, 135.4381] },
+    ITM:  { name:'Osaka Itami',                coord:[34.7855, 135.4381] },
+    RJBB: { name:'Osaka Kansai',               coord:[34.4347, 135.2440] },
+    KIX:  { name:'Osaka Kansai',               coord:[34.4347, 135.2440] },
+    RJFF: { name:'Fukuoka',                    coord:[33.5853, 130.4511] },
+    FUK:  { name:'Fukuoka',                    coord:[33.5853, 130.4511] },
+    RJCC: { name:'Sapporo New Chitose',        coord:[42.7752, 141.6922] },
+    CTS:  { name:'Sapporo',                    coord:[42.7752, 141.6922] },
+    ZBAA: { name:'Beijing Capital',            coord:[40.0799, 116.6031] },
+    PEK:  { name:'Beijing Capital',            coord:[40.0799, 116.6031] },
+    ZBAD: { name:'Beijing Daxing',             coord:[39.5094, 116.4105] },
+    PKX:  { name:'Beijing Daxing',             coord:[39.5094, 116.4105] },
+    ZSPD: { name:'Shanghai Pudong',            coord:[31.1443, 121.8083] },
+    PVG:  { name:'Shanghai Pudong',            coord:[31.1443, 121.8083] },
+    ZSSS: { name:'Shanghai Hongqiao',          coord:[31.1979, 121.3364] },
+    SHA:  { name:'Shanghai Hongqiao',          coord:[31.1979, 121.3364] },
+    ZGGG: { name:'Guangzhou Baiyun',           coord:[23.3924, 113.2990] },
+    CAN:  { name:'Guangzhou',                  coord:[23.3924, 113.2990] },
+    ZGSZ: { name:'Shenzhen Bao\'an',           coord:[22.6393, 113.8107] },
+    SZX:  { name:'Shenzhen',                   coord:[22.6393, 113.8107] },
+    ZPPP: { name:'Kunming Changshui',          coord:[25.1019, 102.9292] },
+    KMG:  { name:'Kunming',                    coord:[25.1019, 102.9292] },
+    ZUUU: { name:'Chengdu Tianfu',             coord:[30.3124, 104.4440] },
+    TFU:  { name:'Chengdu Tianfu',             coord:[30.3124, 104.4440] },
+    RCTP: { name:'Taipei Taiwan Taoyuan',      coord:[25.0777, 121.2326] },
+    TPE:  { name:'Taipei Taoyuan',             coord:[25.0777, 121.2326] },
+    RKSI: { name:'Seoul Incheon',              coord:[37.4602, 126.4407] },
+    ICN:  { name:'Seoul Incheon',              coord:[37.4602, 126.4407] },
+    RKSS: { name:'Seoul Gimpo',                coord:[37.5583, 126.7906] },
+    GMP:  { name:'Seoul Gimpo',                coord:[37.5583, 126.7906] },
+    WSSS: { name:'Singapore Changi',           coord:[ 1.3644, 103.9915] },
+    SIN:  { name:'Singapore Changi',           coord:[ 1.3644, 103.9915] },
+    WMKK: { name:'Kuala Lumpur Intl',          coord:[ 2.7456, 101.7099] },
+    KUL:  { name:'Kuala Lumpur',               coord:[ 2.7456, 101.7099] },
+    VTBS: { name:'Bangkok Suvarnabhumi',       coord:[13.6900, 100.7501] },
+    BKK:  { name:'Bangkok Suvarnabhumi',       coord:[13.6900, 100.7501] },
+    VTBD: { name:'Bangkok Don Mueang',         coord:[13.9126, 100.6067] },
+    DMK:  { name:'Bangkok Don Mueang',         coord:[13.9126, 100.6067] },
+    VDPP: { name:'Phnom Penh',                 coord:[11.5466, 104.8440] },
+    PNH:  { name:'Phnom Penh',                 coord:[11.5466, 104.8440] },
+    VVTS: { name:'Ho Chi Minh City Tan Son Nhat',coord:[10.8188,106.6520] },
+    SGN:  { name:'Ho Chi Minh City',           coord:[10.8188, 106.6520] },
+    VVNB: { name:'Hanoi Noi Bai',              coord:[21.2212, 105.8072] },
+    HAN:  { name:'Hanoi',                      coord:[21.2212, 105.8072] },
+    WMBT: { name:'Kota Kinabalu',              coord:[ 5.9372, 116.0508] },
+    BKI:  { name:'Kota Kinabalu',              coord:[ 5.9372, 116.0508] },
+    WADD: { name:'Bali Ngurah Rai',            coord:[-8.7482, 115.1670] },
+    DPS:  { name:'Bali Ngurah Rai',            coord:[-8.7482, 115.1670] },
+    WIII: { name:'Jakarta Soekarno-Hatta',     coord:[-6.1256, 106.6559] },
+    CGK:  { name:'Jakarta',                    coord:[-6.1256, 106.6559] },
+    RPLL: { name:'Manila Ninoy Aquino',        coord:[14.5086, 121.0197] },
+    MNL:  { name:'Manila',                     coord:[14.5086, 121.0197] },
+    RPMM: { name:'Cebu Mactan Intl',           coord:[10.3075, 123.9790] },
+    CEB:  { name:'Cebu',                       coord:[10.3075, 123.9790] },
+    VRMM: { name:'Male Velana Intl (Maldives)',coord:[ 4.1918,  73.5290] },
+    MLE:  { name:'Male (Maldives)',            coord:[ 4.1918,  73.5290] },
+    VNKT: { name:'Kathmandu Tribhuvan',        coord:[27.6966,  85.3591] },
+    KTM:  { name:'Kathmandu',                  coord:[27.6966,  85.3591] },
+    VGZR: { name:'Dhaka Hazrat Shahjalal',     coord:[23.8433,  90.3979] },
+    DAC:  { name:'Dhaka',                      coord:[23.8433,  90.3979] },
+    // ── Australasia & Pacific ─────────────────────────────
+    YSSY: { name:'Sydney Kingsford Smith',     coord:[-33.9399, 151.1753] },
+    SYD:  { name:'Sydney',                     coord:[-33.9399, 151.1753] },
+    YMEN: { name:'Melbourne Essendon',         coord:[-37.7281, 144.9017] },
+    MEB:  { name:'Melbourne Essendon',         coord:[-37.7281, 144.9017] },
+    YMML: { name:'Melbourne Tullamarine',      coord:[-37.6733, 144.8430] },
+    MEL:  { name:'Melbourne',                  coord:[-37.6733, 144.8430] },
+    YBBN: { name:'Brisbane',                   coord:[-27.3842, 153.1175] },
+    BNE:  { name:'Brisbane',                   coord:[-27.3842, 153.1175] },
+    YPPH: { name:'Perth',                      coord:[-31.9403, 115.9669] },
+    PER:  { name:'Perth',                      coord:[-31.9403, 115.9669] },
+    YPAD: { name:'Adelaide',                   coord:[-34.9450, 138.5308] },
+    ADL:  { name:'Adelaide',                   coord:[-34.9450, 138.5308] },
+    NZAA: { name:'Auckland',                   coord:[-37.0082, 174.7917] },
+    AKL:  { name:'Auckland',                   coord:[-37.0082, 174.7917] },
+    NZWN: { name:'Wellington',                 coord:[-41.3272, 174.8050] },
+    WLG:  { name:'Wellington',                 coord:[-41.3272, 174.8050] },
+    NZCH: { name:'Christchurch',               coord:[-43.4894, 172.5322] },
+    CHC:  { name:'Christchurch',               coord:[-43.4894, 172.5322] },
+    PHNL: { name:'Honolulu Intl',              coord:[21.3187, -157.9224] },
+    PGUM: { name:'Guam A.B. Won Pat',          coord:[13.4834, 144.7960] },
+    GUM:  { name:'Guam',                       coord:[13.4834, 144.7960] },
+    NFFN: { name:'Nadi Intl (Fiji)',           coord:[-17.7554, 177.4430] },
+    NAN:  { name:'Nadi (Fiji)',                coord:[-17.7554, 177.4430] },
+    // ── Africa ────────────────────────────────────────────
+    HECA: { name:'Cairo Intl',                 coord:[ 30.1219,  31.4056] },
+    CAI:  { name:'Cairo',                      coord:[ 30.1219,  31.4056] },
+    HEAL: { name:'Luxor Intl',                 coord:[ 25.6710,  32.7066] },
+    LXR:  { name:'Luxor',                      coord:[ 25.6710,  32.7066] },
+    HEAT: { name:'Aswan Intl',                 coord:[ 23.9644,  32.8199] },
+    ASW:  { name:'Aswan',                      coord:[ 23.9644,  32.8199] },
+    HESH: { name:'Sharm El Sheikh',            coord:[ 27.9773,  34.3950] },
+    SSH:  { name:'Sharm El Sheikh',            coord:[ 27.9773,  34.3950] },
+    HEGN: { name:'Hurghada Intl',              coord:[ 27.1783,  33.7994] },
+    HRG:  { name:'Hurghada',                   coord:[ 27.1783,  33.7994] },
+    FAOR: { name:'Johannesburg O.R. Tambo',    coord:[-26.1392,  28.2460] },
+    JNB:  { name:'Johannesburg',               coord:[-26.1392,  28.2460] },
+    FALA: { name:'Lanseria Intl (Johannesburg)',coord:[-25.9385,  27.9261] },
+    HLA:  { name:'Lanseria',                   coord:[-25.9385,  27.9261] },
+    FACT: { name:'Cape Town Intl',             coord:[-33.9648,  18.6017] },
+    CPT:  { name:'Cape Town',                  coord:[-33.9648,  18.6017] },
+    FALE: { name:'King Shaka (Durban)',        coord:[-29.6144,  31.1197] },
+    DUR:  { name:'Durban',                     coord:[-29.6144,  31.1197] },
+    FAPE: { name:'Port Elizabeth (Gqeberha)',  coord:[-33.9849,  25.6173] },
+    PLZ:  { name:'Port Elizabeth',             coord:[-33.9849,  25.6173] },
+    FBSK: { name:'Sir Seretse Khama (Gaborone)',coord:[-24.5552, 25.9182] },
+    GBE:  { name:'Gaborone',                   coord:[-24.5552,  25.9182] },
+    FVHA: { name:'Robert Gabriel Mugabe (Harare)',coord:[-17.9318,31.0928] },
+    HRE:  { name:'Harare',                     coord:[-17.9318,  31.0928] },
+    FLKK: { name:'Kenneth Kaunda (Lusaka)',    coord:[-15.3308,  28.4526] },
+    LUN:  { name:'Lusaka',                     coord:[-15.3308,  28.4526] },
+    HTDA: { name:'Julius Nyerere (Dar es Salaam)',coord:[-6.8781,39.2026] },
+    DAR:  { name:'Dar es Salaam',              coord:[-6.8781,  39.2026] },
+    HKJK: { name:'Jomo Kenyatta (Nairobi)',    coord:[-1.3192,  36.9275] },
+    NBO:  { name:'Nairobi',                    coord:[-1.3192,  36.9275] },
+    HKMO: { name:'Mombasa Moi Intl',           coord:[-4.0348,  39.5942] },
+    MBA:  { name:'Mombasa',                    coord:[-4.0348,  39.5942] },
+    HAAB: { name:'Addis Ababa Bole',           coord:[ 8.9779,  38.7993] },
+    ADD:  { name:'Addis Ababa',                coord:[ 8.9779,  38.7993] },
+    DNMM: { name:'Murtala Muhammed (Lagos)',   coord:[ 6.5774,   3.3216] },
+    LOS:  { name:'Lagos',                      coord:[ 6.5774,   3.3216] },
+    DNAA: { name:'Abuja Nnamdi Azikiwe',       coord:[ 9.0068,   7.2632] },
+    ABV:  { name:'Abuja',                      coord:[ 9.0068,   7.2632] },
+    DABB: { name:'Ouari Menia (Hassi Messaoud)',coord:[31.6730,  6.1404] },
+    DAAG: { name:'Algiers Houari Boumediene',  coord:[ 36.6910,   3.2154] },
+    ALG:  { name:'Algiers',                    coord:[ 36.6910,   3.2154] },
+    GMME: { name:'Rabat-Salé',                 coord:[ 34.0515,  -6.7516] },
+    RBA:  { name:'Rabat',                      coord:[ 34.0515,  -6.7516] },
+    GMMN: { name:'Casablanca Mohammed V',      coord:[ 33.3675,  -7.5900] },
+    CMN:  { name:'Casablanca',                 coord:[ 33.3675,  -7.5900] },
+    GMMX: { name:'Marrakech Menara',           coord:[ 31.6069,  -8.0363] },
+    RAK:  { name:'Marrakech',                  coord:[ 31.6069,  -8.0363] },
+    DTTA: { name:'Tunis-Carthage',             coord:[ 36.8510,  10.2272] },
+    TUN:  { name:'Tunis',                      coord:[ 36.8510,  10.2272] },
+    HLLT: { name:'Tripoli Mitiga',             coord:[ 32.8941,  13.2760] },
+    MJI:  { name:'Tripoli',                    coord:[ 32.8941,  13.2760] },
+    HBBA: { name:'Bujumbura Intl',             coord:[-3.3240,  29.3185] },
+    BJM:  { name:'Bujumbura',                  coord:[-3.3240,  29.3185] },
+    FZAA: { name:'Kinshasa N\'Djili',          coord:[-4.3857,  15.4446] },
+    FIH:  { name:'Kinshasa',                   coord:[-4.3857,  15.4446] },
+    FCBB: { name:'Brazzaville Maya-Maya',      coord:[-4.2517,  15.2531] },
+    BZV:  { name:'Brazzaville',                coord:[-4.2517,  15.2531] },
+    FZNA: { name:'Goma Intl',                  coord:[-1.6708,  29.2385] },
+    GOM:  { name:'Goma',                       coord:[-1.6708,  29.2385] },
+    FOOL: { name:'Libreville Leon-Mba',        coord:[ 0.4586,   9.4123] },
+    LBV:  { name:'Libreville',                 coord:[ 0.4586,   9.4123] },
+    DIAP: { name:'Abidjan Felix Houphouet-Boigny',coord:[5.2613,-3.9263] },
+    ABJ:  { name:'Abidjan',                    coord:[ 5.2613,  -3.9263] },
+    DGAA: { name:'Accra Kotoka Intl',          coord:[ 5.6052,  -0.1668] },
+    ACC:  { name:'Accra',                      coord:[ 5.6052,  -0.1668] },
+    GOBD: { name:'Dakar Blaise Diagne',        coord:[ 14.6706, -17.0726] },
+    DSS:  { name:'Dakar',                      coord:[ 14.6706, -17.0726] },
+    FSPP: { name:'Seychelles Intl',            coord:[-4.6743,  55.5218] },
+    SEZ:  { name:'Seychelles',                 coord:[-4.6743,  55.5218] },
+    FMMI: { name:'Antananarivo Ivato',         coord:[-18.7969,  47.4788] },
+    TNR:  { name:'Antananarivo',               coord:[-18.7969,  47.4788] },
+    FMCH: { name:'Moroni Prince Said Ibrahim', coord:[-11.5337,  43.2719] },
+    HAH:  { name:'Moroni (Comoros)',           coord:[-11.5337,  43.2719] },
+    FIMP: { name:'Sir Seewoosagur Ramgoolam (Mauritius)',coord:[-20.4302,57.6836] },
+    MRU:  { name:'Mauritius',                  coord:[-20.4302,  57.6836] },
+    FMEE: { name:'Roland Garros (Reunion)',    coord:[-20.8872,  55.5102] },
+    RUN:  { name:'Reunion',                    coord:[-20.8872,  55.5102] },
+    // ── Latin America ─────────────────────────────────────
+    MMMX: { name:'Mexico City Intl',           coord:[ 19.4363, -99.0721] },
+    MEX:  { name:'Mexico City',                coord:[ 19.4363, -99.0721] },
+    MMSD: { name:'Los Cabos Intl',             coord:[ 23.1524,-109.7211] },
+    SJD:  { name:'Los Cabos',                  coord:[ 23.1524,-109.7211] },
+    MMPR: { name:'Puerto Vallarta Intl',       coord:[ 20.6801,-105.2544] },
+    PVR:  { name:'Puerto Vallarta',            coord:[ 20.6801,-105.2544] },
+    MMUN: { name:'Cancun Intl',                coord:[ 21.0365, -86.8771] },
+    CUN:  { name:'Cancun',                     coord:[ 21.0365, -86.8771] },
+    MMMY: { name:'Monterrey General Mariano',  coord:[ 25.7749, -100.1069] },
+    MTY:  { name:'Monterrey',                  coord:[ 25.7749,-100.1069] },
+    MMGL: { name:'Guadalajara Miguel Hidalgo', coord:[ 20.5218,-103.3111] },
+    GDL:  { name:'Guadalajara',                coord:[ 20.5218,-103.3111] },
+    MGTK: { name:'Flores (Tikal)',             coord:[ 16.9138, -89.8664] },
+    FRS:  { name:'Flores Guatemala',           coord:[ 16.9138, -89.8664] },
+    MROC: { name:'Juan Santamaria (San Jose)', coord:[ 9.9939, -84.2088] },
+    SJO:  { name:'San Jose Costa Rica',        coord:[ 9.9939, -84.2088] },
+    MPHO: { name:'Howard (Panama City)',       coord:[ 8.9148, -79.5996] },
+    PTY:  { name:'Panama City Tocumen',        coord:[ 9.0714, -79.3835] },
+    MPTO: { name:'Tocumen Intl (Panama)',      coord:[ 9.0714, -79.3835] },
+    SBGR: { name:'São Paulo Guarulhos',        coord:[-23.4356, -46.4731] },
+    GRU:  { name:'São Paulo Guarulhos',        coord:[-23.4356, -46.4731] },
+    SBBR: { name:'Brasilia',                   coord:[-15.8711, -47.9186] },
+    BSB:  { name:'Brasilia',                   coord:[-15.8711, -47.9186] },
+    SBRJ: { name:'Rio Santos Dumont',          coord:[-22.9105, -43.1632] },
+    SDU:  { name:'Rio Santos Dumont',          coord:[-22.9105, -43.1632] },
+    SBGL: { name:'Rio Galeao',                 coord:[-22.8100, -43.2505] },
+    GIG:  { name:'Rio de Janeiro Galeao',      coord:[-22.8100, -43.2505] },
+    SBBE: { name:'Belem Val de Cans',          coord:[-1.3793, -48.4763] },
+    BEL:  { name:'Belem',                      coord:[-1.3793, -48.4763] },
+    SBAM: { name:'Manaus Eduardo Gomes',       coord:[-3.0386, -60.0497] },
+    MAO:  { name:'Manaus',                     coord:[-3.0386, -60.0497] },
+    SAEZ: { name:'Buenos Aires Ezeiza',        coord:[-34.8222, -58.5358] },
+    EZE:  { name:'Buenos Aires Ezeiza',        coord:[-34.8222, -58.5358] },
+    SABE: { name:'Buenos Aires Jorge Newbery', coord:[-34.5592, -58.4156] },
+    AEP:  { name:'Buenos Aires City (Aeroparque)',coord:[-34.5592,-58.4156]},
+    SCEL: { name:'Santiago Arturo Merino',     coord:[-33.3930, -70.7858] },
+    SCL:  { name:'Santiago',                   coord:[-33.3930, -70.7858] },
+    SEQM: { name:'Quito Mariscal Sucre',       coord:[-0.1292, -78.3575] },
+    UIO:  { name:'Quito',                      coord:[-0.1292, -78.3575] },
+    SPJC: { name:'Lima Jorge Chavez',          coord:[-12.0219, -77.1143] },
+    LIM:  { name:'Lima',                       coord:[-12.0219, -77.1143] },
+    SKBO: { name:'Bogotá El Dorado',           coord:[ 4.7016, -74.1469] },
+    BOG:  { name:'Bogotá',                     coord:[ 4.7016, -74.1469] },
+    SVMI: { name:'Caracas Simon Bolivar',      coord:[10.6031, -66.9908] },
+    CCS:  { name:'Caracas',                    coord:[10.6031, -66.9908] },
+    SUMU: { name:'Montevideo Carrasco',        coord:[-34.8384, -56.0308] },
+    MVD:  { name:'Montevideo',                 coord:[-34.8384, -56.0308] },
+    SLVR: { name:'Viru Viru (Santa Cruz)',     coord:[-17.6448, -63.1354] },
+    VVI:  { name:'Santa Cruz Bolivia',         coord:[-17.6448, -63.1354] },
+    SPTU: { name:'Puerto Maldonado',           coord:[-12.6135, -69.2286] },
+    PEM:  { name:'Puerto Maldonado',           coord:[-12.6135, -69.2286] },
+    SGAS: { name:'Asuncion Silvio Pettirossi', coord:[-25.2399, -57.5198] },
+    ASU:  { name:'Asuncion',                   coord:[-25.2399, -57.5198] },
+};
+
+// Build datalist
+const dl = document.getElementById('airportList');
+Object.entries(AIRPORTS).forEach(([code, info]) => {
+    const opt = document.createElement('option');
+    opt.value = code.toUpperCase();
+    opt.label = `${code} — ${info.name}`;
+    dl.appendChild(opt);
+});
+
+function getCoord(code) {
+    const c = AIRPORTS[code.toUpperCase()];
+    return c ? c.coord : null;
+}
+function getAirportName(code) {
+    const c = AIRPORTS[code.toUpperCase()];
+    return c ? c.name : code;
+}
+
+// ════════════════════════════════════════════════════════
+// PRESET FLEET (demo aircraft with pre-built schedules)
+// ════════════════════════════════════════════════════════
+const FLEET = [
+    {
+        reg: 'N-817CW', type: 'Gulfstream G650ER',
+        color: '#3B82F6', trackClass: 'ac0-track', statusClass: 'ac0',
+        legs: [['JFK','ORD'],['ORD','DEN'],['DEN','LAX']],
+        dayLabels: ['Day 1: JFK→ORD','Day 2: ORD→DEN','Day 3: DEN→LAX'],
+        legDesc:   ['JFK → ORD','ORD → DEN','DEN → LAX'],
+    },
+    {
+        reg: 'VP-BCX4', type: 'Bombardier Global 7500',
+        color: '#D4830A', trackClass: 'ac1-track', statusClass: 'ac1',
+        legs: [['MIA','ATL'],['ATL','STL'],['STL','SEA']],
+        dayLabels: ['Day 1: MIA→ATL','Day 2: ATL→STL','Day 3: STL→SEA'],
+        legDesc:   ['MIA → ATL','ATL → STL','STL → SEA'],
+    },
+    {
+        reg: 'M-AVIA',  type: 'Dassault Falcon 8X',
+        color: '#00964A', trackClass: 'ac2-track', statusClass: 'ac2',
+        legs: [['SEA','SLC'],['SLC','DFW'],['DFW','BOS']],
+        dayLabels: ['Day 1: SEA→SLC','Day 2: SLC→DFW','Day 3: DFW→BOS'],
+        legDesc:   ['SEA → SLC','SLC → DFW','DFW → BOS'],
+    },
+    {
+        reg: 'OE-LCW',  type: 'Airbus ACJ320neo',
+        color: '#7C3AED', trackClass: 'ac3-track', statusClass: 'ac3',
+        legs: [['BOS','JFK'],['JFK','MIA'],['MIA','LAX']],
+        dayLabels: ['Day 1: BOS→JFK','Day 2: JFK→MIA','Day 3: MIA→LAX'],
+        legDesc:   ['BOS → JFK','JFK → MIA','MIA → LAX'],
+    },
+];
+
+// Slot colours (up to 3 active aircraft)
+const SLOT_COLORS       = ['#3B82F6','#D4830A','#00964A'];
+const SLOT_TRACK_CLASS  = ['ac0-track','ac1-track','ac2-track'];
+const SLOT_STATUS_CLASS = ['ac0','ac1','ac2'];
+
+// ════════════════════════════════════════════════════════
+// MAP SETUP
+// ════════════════════════════════════════════════════════
+const map = L.map('routeMap').setView([38, -96], 4);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd', maxZoom: 19,
+}).addTo(map);
+
+// ── Icons ─────────────────────────────────────────────
+const airportIcon = (code, color) => L.divIcon({
+    className: '',
+    html: `<div style="background:#fff;color:${color};padding:2px 7px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;white-space:nowrap;border:1.5px solid ${color};box-shadow:0 2px 6px rgba(0,0,0,.12)">${code.toUpperCase()}</div>`,
+    iconAnchor: [18, 8],
+});
+function planeIcon(angle, color) {
+    return L.divIcon({
+        className: '',
+        html: `<div style="font-size:1.5rem;transform:rotate(${angle}deg);filter:drop-shadow(0 2px 5px rgba(0,0,0,.3));color:${color};line-height:1">✈</div>`,
+        iconAnchor: [12, 12],
+    });
+}
+function bearing(p1, p2) { return Math.atan2(p2[1]-p1[1], p2[0]-p1[0]) * 180/Math.PI - 90; }
+
+function buildArc(fromC, toC, steps = 60) {
+    const dLat = toC[0]-fromC[0], dLng = toC[1]-fromC[1];
+    const bow  = Math.sqrt(dLat*dLat + dLng*dLng) * 0.12;
+    return Array.from({length: steps+1}, (_,i) => {
+        const t = i/steps;
+        return [fromC[0]+dLat*t+Math.sin(Math.PI*t)*bow, fromC[1]+dLng*t];
+    });
+}
+
+// ════════════════════════════════════════════════════════
+// ACTIVE SLOTS
+// ════════════════════════════════════════════════════════
+const DAYS = 3, SEG = 100/DAYS, DEP_FRAC = 0.15, ARR_FRAC = 0.85;
+let mapLayers   = [];
+let activeSlots = [];
+
+function clearMapLayers() { mapLayers.forEach(l => map.removeLayer(l)); mapLayers = []; }
+function addLayer(l) { l.addTo(map); mapLayers.push(l); return l; }
+
+// Simple 3-leg slider state (preset mode)
+function getSimpleState(val, arcs) {
+    const dayIdx    = Math.min(DAYS-1, Math.floor(val/SEG));
+    const withinSeg = (val - dayIdx*SEG) / SEG;
+    const arc       = arcs[dayIdx];
+    if (withinSeg <= DEP_FRAC) return { dayIdx, arc, arcIdx:0, pos:arc[0], phase:'origin' };
+    if (withinSeg >= ARR_FRAC) { const l=arc.length-1; return { dayIdx, arc, arcIdx:l, pos:arc[l], phase:'dest' }; }
+    const arcIdx = Math.round((withinSeg-DEP_FRAC)/(ARR_FRAC-DEP_FRAC)*(arc.length-1));
+    return { dayIdx, arc, arcIdx, pos:arc[arcIdx], phase:'flight' };
+}
+
+// Timeline state (manual mode — uses real dep/arr minutes)
+function getTimelineState(val, tl) {
+    const absMin = tl.firstMin + (val/100) * (tl.lastMin - tl.firstMin);
+    for (const leg of tl.legs) {
+        if (absMin >= leg.depMin && absMin <= leg.arrMin) {
+            const t = (absMin-leg.depMin)/(leg.arrMin-leg.depMin);
+            const arcIdx = Math.round(t*(leg.arc.length-1));
+            return { phase:'flight', leg, arcIdx, pos:leg.arc[arcIdx] };
+        }
+    }
+    const first = tl.legs[0];
+    if (absMin < first.depMin) return { phase:'parked', at:first.from, leg:first, arcIdx:0, pos:first.arc[0] };
+    const last = tl.legs[tl.legs.length-1];
+    if (absMin >= last.arrMin) return { phase:'parked', at:last.to, leg:last, arcIdx:last.arc.length-1, pos:last.arc[last.arc.length-1] };
+    for (let i=0; i<tl.legs.length-1; i++) {
+        if (absMin > tl.legs[i].arrMin && absMin < tl.legs[i+1].depMin) {
+            const leg = tl.legs[i];
+            return { phase:'parked', at:leg.to, leg, arcIdx:leg.arc.length-1, pos:leg.arc[leg.arc.length-1] };
+        }
+    }
+    return { phase:'parked', at:first.from, leg:first, arcIdx:0, pos:first.arc[0] };
+}
+
+function updateSlot(val, slot) {
+    let arc, arcIdx, pos, statusText;
+
+    if (slot.mode === 'timeline') {
+        const s = getTimelineState(val, slot.timeline);
+        arc = s.leg.arc; arcIdx = s.arcIdx; pos = s.pos;
+        statusText = s.phase === 'flight'
+            ? `${s.leg.from} → ${s.leg.to} — En Route`
+            : `${s.at} — Parked`;
+    } else {
+        const s = getSimpleState(val, slot.arcs);
+        const [fr, to] = slot.ac.legs[s.dayIdx];
+        arc = s.arc; arcIdx = s.arcIdx; pos = s.pos;
+        const d = `Day ${s.dayIdx+1}`;
+        statusText = s.phase==='origin' ? `${fr} — Parked (${d})`
+                   : s.phase==='dest'   ? `${to} — Landed (${d})`
+                   : `${fr} → ${to} — En Route (${d})`;
+    }
+
+    slot.marker.setLatLng(pos);
+    let angle = 0;
+    if (arcIdx>0 && arcIdx<arc.length-1)    angle = bearing(arc[arcIdx-1], pos);
+    else if (arcIdx===0 && arc.length>1)     angle = bearing(arc[0], arc[1]);
+    else if (arc.length>1)                   angle = bearing(arc[arc.length-2], arc[arc.length-1]);
+    slot.marker.setIcon(planeIcon(angle, slot.color));
+
+    const trackEl = document.getElementById(slot.sliderId);
+    if (trackEl) trackEl.style.background = `linear-gradient(90deg,${slot.color} ${val}%,rgba(0,0,0,.1) ${val}%)`;
+    const statusEl = document.getElementById(slot.statusId);
+    if (statusEl) statusEl.textContent = statusText;
+    refreshStateColors();
+}
+
+// ── Build from preset AC ─────────────────────────────
+function buildPresetSlots(selectedAC) {
+    clearMapLayers(); activeSlots = [];
+    const bounds = [];
+    selectedAC.forEach((ac, i) => {
+        const arcs = ac.legs.map(([from, to]) => {
+            const fc = getCoord(from), tc = getCoord(to);
+            if (!fc || !tc) return [];
+            const arc = buildArc(fc, tc);
+            addLayer(L.polyline(arc, {color:ac.color, weight:2, opacity:.55, dashArray:'6,5'}));
+            return arc;
+        }).filter(a => a.length > 0);
+
+        const seen = new Set();
+        ac.legs.flat().forEach(code => {
+            if (!seen.has(code) && getCoord(code)) {
+                seen.add(code);
+                const c = getCoord(code);
+                bounds.push(c);
+                addLayer(L.marker(c, {icon: airportIcon(code, ac.color)}).bindPopup(`<b>${code}</b> — ${getAirportName(code)}`));
+            }
+        });
+
+        const firstArc = arcs[0];
+        const marker = addLayer(L.marker(firstArc[0], {icon: planeIcon(bearing(firstArc[0],firstArc[1]),ac.color), zIndexOffset:1000}));
+        activeSlots.push({ mode:'simple', ac, color:ac.color, arcs, marker, sliderId:`slider_${i}`, statusId:`status_${i}`, statusClass:ac.statusClass, trackClass:ac.trackClass });
+    });
+    if (bounds.length) map.fitBounds(bounds, {padding:[40,40]});
+}
+
+// ── Build from manual entries ────────────────────────
+function buildManualSlots(manualAircraft) {
+    clearMapLayers(); activeSlots = [];
+    const bounds = [];
+
+    manualAircraft.forEach((mac, i) => {
+        const color = SLOT_COLORS[i];
+        const legs = mac.legs;
+
+        // Parse to absolute minutes — use ISO date string for UTC-safe diff
+        const legsParsed = legs.map(leg => {
+            const [dHh,dMm] = leg.depTime.split(':').map(Number);
+            const [aHh,aMm] = leg.arrTime.split(':').map(Number);
+            return { from:leg.dep.toUpperCase(), to:leg.arr.toUpperCase(),
+                     dateStr:leg.date, dHh, dMm, aHh, aMm };
+        });
+        // Sort chronologically (FR24 pastes newest-first)
+        legsParsed.sort((a,b) => a.dateStr < b.dateStr ? -1 : a.dateStr > b.dateStr ? 1 : a.dHh*60+a.dMm - (b.dHh*60+b.dMm));
+        const baseIso = legsParsed[0].dateStr; // earliest date
+        const parsedLegs = legsParsed.map(leg => {
+            const dayOffset = Math.round((new Date(leg.dateStr+'T00:00:00Z') - new Date(baseIso+'T00:00:00Z')) / 86400000);
+            let depMin = dayOffset*1440 + leg.dHh*60 + leg.dMm;
+            let arrMin = dayOffset*1440 + leg.aHh*60 + leg.aMm;
+            if (arrMin <= depMin) arrMin += 1440; // overnight
+            return { from:leg.from, to:leg.to, depMin, arrMin };
+        });
+
+        const firstMin = parsedLegs[0].depMin;
+        const lastMin  = parsedLegs[parsedLegs.length-1].arrMin;
+
+        // Build arcs
+        const tlLegs = parsedLegs.map(pl => {
+            const fc = getCoord(pl.from), tc = getCoord(pl.to);
+            if (!fc || !tc) return null;
+            const arc = buildArc(fc, tc);
+            addLayer(L.polyline(arc, {color, weight:2, opacity:.55, dashArray:'6,5'}));
+            return { ...pl, arc };
+        }).filter(Boolean);
+
+        if (!tlLegs.length) return;
+
+        // Airport markers
+        const seen = new Set();
+        tlLegs.forEach(leg => {
+            [leg.from, leg.to].forEach(code => {
+                if (!seen.has(code) && getCoord(code)) {
+                    seen.add(code);
+                    const c = getCoord(code);
+                    bounds.push(c);
+                    addLayer(L.marker(c, {icon: airportIcon(code, color)}).bindPopup(`<b>${code}</b> — ${getAirportName(code)}`));
+                }
+            });
+        });
+
+        const timeline = { firstMin, lastMin, legs: tlLegs };
+        const firstArc = tlLegs[0].arc;
+        const marker = addLayer(L.marker(firstArc[0], {icon: planeIcon(bearing(firstArc[0],firstArc[1]),color), zIndexOffset:1000}));
+
+        activeSlots.push({
+            mode: 'timeline',
+            reg: mac.reg || `Aircraft ${i+1}`,
+            type: mac.type || '',
+            color,
+            timeline,
+            baseDate: baseIso,
+            marker,
+            sliderId: `slider_${i}`,
+            statusId: `status_${i}`,
+            statusClass: SLOT_STATUS_CLASS[i],
+            trackClass:  SLOT_TRACK_CLASS[i],
+            legs: tlLegs,
+        });
+    });
+
+    if (bounds.length) map.fitBounds(bounds, {padding:[40,40]});
+}
+
+// ════════════════════════════════════════════════════════
+// RENDER SLIDERS & ROUTE INFO
+// ════════════════════════════════════════════════════════
+function renderSliders() {
+    const wrap = document.getElementById('slidersWrap');
+    const sliderCount = activeSlots.length;
+    if (!sliderCount) { wrap.innerHTML = ''; return; }
+
+    // Compute UTC schedule range from timeline slots
+    const fmtDate = d => d.toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric', timeZone:'UTC'});
+    const fmtTime = d => d.toISOString().slice(11,16);
+    let globalStart = null, globalEnd = null;
+    activeSlots.filter(s => s.mode==='timeline' && s.baseDate).forEach(slot => {
+        const base  = new Date(slot.baseDate + 'T00:00:00Z');
+        const start = new Date(base.getTime() + slot.timeline.firstMin * 60000);
+        const end   = new Date(base.getTime() + slot.timeline.lastMin  * 60000);
+        if (!globalStart || start < globalStart) globalStart = start;
+        if (!globalEnd   || end   > globalEnd)   globalEnd   = end;
+    });
+    let scheduleHTML = '';
+    if (globalStart) {
+        const totalMs  = globalEnd - globalStart;
+        const twoHrMs  = 2 * 3600000;
+        // Build tick list: start edge + interior 2h marks + end edge
+        const ticks = [];
+        ticks.push({ label: fmtTime(globalStart), pct: 0,   cls: 'edge-start' });
+        const firstBoundary = new Date(Math.ceil(globalStart.getTime() / twoHrMs) * twoHrMs);
+        for (let t = firstBoundary; t < globalEnd; t = new Date(t.getTime() + twoHrMs)) {
+            const pct = (t - globalStart) / totalMs * 100;
+            if (pct > 4 && pct < 96) ticks.push({ label: fmtTime(t), pct });
+        }
+        ticks.push({ label: fmtTime(globalEnd), pct: 100, cls: 'edge-end' });
+        const ticksHTML = ticks.map(tk =>
+            `<span class="sch-tick${tk.cls ? ' '+tk.cls : ''}" style="left:${tk.pct.toFixed(1)}%">${tk.label}</span>`
+        ).join('');
+        scheduleHTML = `
+        <div class="schedule-range">
+            <div class="sch-dates">
+                <span>${fmtDate(globalStart)}</span>
+                <span>${fmtDate(globalEnd)}</span>
+            </div>
+            <div class="sch-timeline">
+                <div class="sch-ticks">${ticksHTML}</div>
+                <div class="sch-bar-wrap">
+                    <div class="sch-bar"></div>
+                    <div id="schMarker" class="sch-marker" style="left:0%"></div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    wrap.innerHTML = scheduleHTML + `
+        <div class="playback-controls">
+            <button id="playBtn" class="play-btn" title="Play / Pause" onclick="togglePlay()">
+                <svg id="playIcon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+            </button>
+            <div class="speed-control">
+                <span class="speed-label">Speed</span>
+                <input type="range" id="speedSlider" class="speed-track" min="1" max="10" value="3" step="1"
+                    oninput="onSpeedChange(this.value)">
+                <span class="speed-val" id="speedVal">3×</span>
+            </div>
+        </div>
+        <div class="slider-section master">
+            <div class="slider-header">
+                <span class="sh-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    Master Control — Move all aircraft together
+                </span>
+                <span class="sh-status master" id="masterStatus">Start</span>
+            </div>
+            <input type="range" id="masterSlider" class="slider-track master-track" min="0" max="100" value="0">
+            <div class="slider-segments"><span>Start</span><span>Midpoint</span><span>End</span></div>
+        </div>
+        ${activeSlots.map((slot,i) => `
+        <div class="slider-section">
+            <div class="slider-header">
+                <span class="sh-label">
+                    <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${slot.color};margin-right:4px"></span>
+                    ${slot.reg || slot.ac?.reg}${slot.type || slot.ac?.type ? ' · '+(slot.type||slot.ac?.type) : ''}
+                </span>
+                <span class="sh-status ${slot.statusClass}" id="${slot.statusId}">Parked</span>
+            </div>
+            <input type="range" id="${slot.sliderId}" class="slider-track individual ${slot.trackClass}" min="0" max="100" value="0">
+            <div class="slider-segments">
+                ${slot.mode==='timeline'
+                    ? slot.legs.map(l=>`<span>${l.from}→${l.to}</span>`).join('')
+                    : slot.ac.dayLabels.map(l=>`<span>${l}</span>`).join('')
+                }
+            </div>
+        </div>`).join('')}
+    `;
+
+    activeSlots.forEach(slot => {
+        const el = document.getElementById(slot.sliderId);
+        if (el) el.addEventListener('input', function() { updateSlot(parseFloat(this.value), slot); });
+    });
+
+    const master = document.getElementById('masterSlider');
+    master.addEventListener('input', function() {
+        stopPlay();
+        const val = parseFloat(this.value);
+        playPosition = val;
+        activeSlots.forEach(slot => {
+            const el = document.getElementById(slot.sliderId);
+            if (el) { el.value = val; updateSlot(val, slot); }
+        });
+        this.style.background = `linear-gradient(90deg,var(--accent) ${val}%,rgba(0,0,0,.1) ${val}%)`;
+        document.getElementById('masterStatus').textContent = val===0?'Start':val>=100?'Complete':`${Math.round(val)}% through period`;
+    });
+}
+
+function renderRouteInfo() {
+    document.getElementById('routeInfo').innerHTML = activeSlots.map(slot => {
+        const legs = slot.mode==='timeline' ? slot.legs : slot.ac?.legs.map(([f,t])=>({from:f,to:t})) || [];
+        return `
+        <div class="route-info-card" style="border-top-color:${slot.color}">
+            <div class="ri-airline" style="color:${slot.color}">${slot.reg||slot.ac?.reg} · ${slot.type||slot.ac?.type||''}</div>
+            ${legs.map((l,i)=>`<div class="ri-leg">Leg ${i+1}: ${l.from} → ${l.to}</div>`).join('')}
+        </div>`;
+    }).join('');
+}
+
+function renderLegend() {
+    document.getElementById('legend').innerHTML = activeSlots.map(slot => `
+        <div class="legend-item">
+            <span class="legend-dot" style="background:${slot.color}"></span>
+            <span>${slot.reg||slot.ac?.reg}</span>
+        </div>`).join('');
+}
+
+function updateSubtitle() {
+    document.getElementById('pageSubtitle').textContent =
+        `${activeSlots.length} aircraft · ADS-B simulation`;
+}
+
+// ════════════════════════════════════════════════════════
+// SOURCE SWITCHING
+// ════════════════════════════════════════════════════════
+let currentSource = 'manual';
+
+function setSource(src) {
+    currentSource = src;
+    document.getElementById('tabManual').classList.toggle('active', src==='manual');
+    document.getElementById('tabPaste').classList.toggle('active',  src==='paste');
+    document.getElementById('tabApi').classList.toggle('active',    src==='api');
+    document.getElementById('presetPanel').style.display = 'none';
+    document.getElementById('manualPanel').style.display = 'none';
+    document.getElementById('pastePanel').style.display  = 'none';
+    document.getElementById('apiPanel').style.display    = 'none';
+    document.getElementById('countGroup').style.display  = src==='api' ? 'none' : '';
+
+    if (src==='manual')      document.getElementById('manualPanel').style.display = 'block';
+    else if (src==='paste')  document.getElementById('pastePanel').style.display  = 'block';
+    else if (src==='api')    document.getElementById('apiPanel').style.display    = 'block';
+}
+
+// ════════════════════════════════════════════════════════
+// PRESET MODE
+// ════════════════════════════════════════════════════════
+function populateRegSelects() {
+    const count = parseInt(document.getElementById('acCount').value);
+    for (let i=0; i<3; i++) {
+        const g = document.getElementById(`regGroup${i}`);
+        if (g) { g.classList.toggle('hidden', i>=count); document.getElementById(`regSel${i}`).disabled = (i>=count); }
+    }
+    for (let i=0; i<count; i++) {
+        const sel = document.getElementById(`regSel${i}`);
+        if (!sel) continue;
+        const cur = sel.value;
+        sel.innerHTML = FLEET.map((ac,idx)=>`<option value="${idx}">${ac.reg} — ${ac.type}</option>`).join('');
+        sel.value = cur || String(i);
+    }
+}
+
+function applyPreset() {
+    const count = parseInt(document.getElementById('acCount').value);
+    const selected = [], used = new Set();
+    for (let i=0; i<count; i++) {
+        let idx = parseInt(document.getElementById(`regSel${i}`).value);
+        if (used.has(idx)) idx = FLEET.findIndex((_,k)=>!used.has(k));
+        if (idx<0||idx>=FLEET.length) idx = i%FLEET.length;
+        used.add(idx); selected.push(FLEET[idx]);
+    }
+    buildPresetSlots(selected);
+    renderSliders(); renderRouteInfo(); renderLegend(); updateSubtitle();
+}
+
+// ════════════════════════════════════════════════════════
+// MANUAL MODE
+// ════════════════════════════════════════════════════════
+let activeMacTab = 0;
+
+function onCountChange() {
+    const count = parseInt(document.getElementById('acCount').value);
+    // Update manual mac tabs
+    for (let i=0; i<3; i++) {
+        const tab = document.querySelector(`#macTabs .mac-tab[data-idx="${i}"]`);
+        if (tab) tab.classList.toggle('hidden', i>=count);
+    }
+    if (activeMacTab >= count) switchMacTab(0);
+    // Update paste tabs
+    for (let i=0; i<3; i++) {
+        const tab = document.querySelector(`#pasteTabs .mac-tab[data-idx="${i}"]`);
+        if (tab) tab.classList.toggle('hidden', i>=count);
+    }
+    if (activePasteTab >= count) switchPasteTab(0);
+    // Also update preset panel
+    populateRegSelects();
+}
+
+function switchMacTab(idx) {
+    activeMacTab = idx;
+    document.querySelectorAll('.mac-tab').forEach(t => t.classList.toggle('active', parseInt(t.dataset.idx)===idx));
+    document.querySelectorAll('.manual-ac-panel').forEach((p,i) => p.classList.toggle('active', i===idx));
+}
+
+// Default schedule rows per aircraft
+const DEFAULT_LEGS = [
+    [ {date:'2026-03-10',depTime:'08:00',dep:'JFK',arr:'ORD',arrTime:'10:30'},
+      {date:'2026-03-11',depTime:'09:00',dep:'ORD',arr:'DEN',arrTime:'11:00'},
+      {date:'2026-03-12',depTime:'10:00',dep:'DEN',arr:'LAX',arrTime:'11:30'} ],
+    [ {date:'2026-03-10',depTime:'07:00',dep:'MIA',arr:'ATL',arrTime:'08:45'},
+      {date:'2026-03-11',depTime:'11:00',dep:'ATL',arr:'STL',arrTime:'12:30'},
+      {date:'2026-03-12',depTime:'08:00',dep:'STL',arr:'SEA',arrTime:'10:30'} ],
+    [ {date:'2026-03-10',depTime:'06:30',dep:'SEA',arr:'SLC',arrTime:'08:00'},
+      {date:'2026-03-11',depTime:'13:00',dep:'SLC',arr:'DFW',arrTime:'17:30'},
+      {date:'2026-03-12',depTime:'09:00',dep:'DFW',arr:'BOS',arrTime:'14:00'} ],
+];
+
+function buildManualPanels() {
+    for (let i=0; i<3; i++) {
+        const color = SLOT_COLORS[i];
+        document.getElementById(`macPanel${i}`).innerHTML = buildManualPanelHTML(i, color);
+    }
+    // Wire airport input validation
+    document.querySelectorAll('.airport-input').forEach(inp => {
+        inp.addEventListener('input', function() { validateAirport(this); });
+        inp.addEventListener('blur',  function() { this.value = this.value.toUpperCase(); validateAirport(this); });
+    });
+}
+
+function buildManualPanelHTML(idx, color) {
+    const defaultLegs = DEFAULT_LEGS[idx] || [];
+    const rows = defaultLegs.map((leg, ri) => buildLegRow(idx, ri, leg)).join('');
+    return `
+    <div class="manual-ac-header">
+        <div class="ctrl-group">
+            <span class="ctrl-label">Registration</span>
+            <input id="macReg${idx}" class="ctrl-input reg-input" type="text" placeholder="e.g. N-817CW" value="${FLEET[idx]?.reg||''}">
+        </div>
+        <div class="ctrl-group">
+            <span class="ctrl-label">Aircraft type</span>
+            <input id="macType${idx}" class="ctrl-input reg-input" type="text" placeholder="e.g. G650ER" value="${FLEET[idx]?.type||''}">
+        </div>
+    </div>
+    <div class="sched-table-wrap">
+    <table class="sched-table" id="schedTable${idx}">
+        <thead>
+            <tr>
+                <th class="cell-date">Date</th>
+                <th class="cell-time">Dep Time (UTC)</th>
+                <th class="cell-airport">Dep Airport (ICAO)</th>
+                <th class="cell-airport">Arr Airport (ICAO)</th>
+                <th class="cell-time">Arr Time (UTC)</th>
+                <th class="cell-del"></th>
+            </tr>
+        </thead>
+        <tbody id="legBody${idx}">${rows}</tbody>
+    </table>
+    </div>
+    <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addLegRow(${idx})">+ Add leg</button>`;
+}
+
+let legCounters = [3,3,3]; // how many rows per aircraft panel
+
+function buildLegRow(acIdx, rowIdx, defaults={}) {
+    const rid = `ac${acIdx}_leg${rowIdx}`;
+    return `
+    <tr id="row_${rid}">
+        <td class="cell-date"><input class="ctrl-input date-input" type="date" id="${rid}_date" value="${defaults.date||''}"></td>
+        <td class="cell-time"><input class="ctrl-input time-input" type="time" id="${rid}_depTime" value="${defaults.depTime||''}"></td>
+        <td class="cell-airport"><input class="ctrl-input airport-input" type="text" list="airportList" id="${rid}_dep" value="${defaults.dep||''}" placeholder="ICAO" maxlength="6"></td>
+        <td class="cell-airport"><input class="ctrl-input airport-input" type="text" list="airportList" id="${rid}_arr" value="${defaults.arr||''}" placeholder="ICAO" maxlength="6"></td>
+        <td class="cell-time"><input class="ctrl-input time-input" type="time" id="${rid}_arrTime" value="${defaults.arrTime||''}"></td>
+        <td class="cell-del"><button class="btn btn-danger btn-sm" onclick="deleteLegRow('${rid}','row_${rid}')">✕</button></td>
+    </tr>`;
+}
+
+function addLegRow(acIdx) {
+    const rowIdx = legCounters[acIdx]++;
+    const tbody = document.getElementById(`legBody${acIdx}`);
+    const tmp = document.createElement('tbody');
+    tmp.innerHTML = buildLegRow(acIdx, rowIdx, {});
+    tbody.appendChild(tmp.firstElementChild);
+    // Wire airport validation on new inputs
+    tbody.querySelectorAll('.airport-input').forEach(inp => {
+        inp.addEventListener('input', function() { validateAirport(this); });
+        inp.addEventListener('blur',  function() { this.value=this.value.toUpperCase(); validateAirport(this); });
+    });
+}
+
+function deleteLegRow(rid, rowId) {
+    const row = document.getElementById(rowId);
+    if (row) row.remove();
+}
+
+function validateAirport(inp) {
+    const val = inp.value.toUpperCase().trim();
+    if (!val) { inp.classList.remove('ok','err'); return; }
+    const found = !!AIRPORTS[val];
+    inp.classList.toggle('ok', found);
+    inp.classList.toggle('err', !found);
+}
+
+function readManualData() {
+    const count = parseInt(document.getElementById('acCount').value);
+    const result = [];
+    for (let i=0; i<count; i++) {
+        const reg  = document.getElementById(`macReg${i}`)?.value?.trim() || `Aircraft ${i+1}`;
+        const type = document.getElementById(`macType${i}`)?.value?.trim() || '';
+        const tbody = document.getElementById(`legBody${i}`);
+        if (!tbody) continue;
+        const legs = [];
+        tbody.querySelectorAll('tr[id]').forEach(row => {
+            const rid = row.id.replace('row_','');
+            const date    = document.getElementById(`${rid}_date`)?.value;
+            const depTime = document.getElementById(`${rid}_depTime`)?.value;
+            const dep     = document.getElementById(`${rid}_dep`)?.value?.toUpperCase().trim();
+            const arr     = document.getElementById(`${rid}_arr`)?.value?.toUpperCase().trim();
+            const arrTime = document.getElementById(`${rid}_arrTime`)?.value;
+            if (date && depTime && dep && arr && arrTime) legs.push({date,depTime,dep,arr,arrTime});
+        });
+        result.push({ reg, type, legs });
+    }
+    return result;
+}
+
+function applyManual() {
+    const data = readManualData();
+    const errors = [];
+    data.forEach((mac, i) => {
+        mac.legs.forEach((leg, j) => {
+            if (!AIRPORTS[leg.dep]) errors.push(`Aircraft ${i+1} leg ${j+1}: "${leg.dep}" not found`);
+            if (!AIRPORTS[leg.arr]) errors.push(`Aircraft ${i+1} leg ${j+1}: "${leg.arr}" not found`);
+        });
+        if (!mac.legs.length) errors.push(`Aircraft ${i+1}: no valid legs entered`);
+    });
+    if (errors.length) { showToast(errors[0]); return; }
+    buildManualSlots(data);
+    renderSliders(); renderRouteInfo(); renderLegend(); updateSubtitle();
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// Tab label update based on registration input
+function updateMacTabLabel(idx) {
+    const reg = document.getElementById(`macReg${idx}`)?.value?.trim();
+    const el  = document.getElementById(`macTabLabel${idx}`);
+    if (el) el.textContent = reg || `Aircraft ${idx+1}`;
+}
+
+// ════════════════════════════════════════════════════════
+// PASTE FR24 MODE
+// ════════════════════════════════════════════════════════
+let activePasteTab = 0;
+
+function switchPasteTab(idx) {
+    activePasteTab = idx;
+    document.querySelectorAll('#pasteTabs .mac-tab').forEach(t => t.classList.toggle('active', parseInt(t.dataset.idx)===idx));
+    document.querySelectorAll('.paste-ac-panel').forEach((p,i) => p.classList.toggle('active', i===idx));
+}
+
+// Parse a single FR24 row. Columns (0-indexed):
+// 0:date  1:dep  2:arr  3:flightNo  4:flightTime  5:schedDep  6:actualArr  7:schedArr  8:status
+function parseFR24Row(line) {
+    const cols = line.includes('\t') ? line.split('\t') : line.split(',');
+    if (cols.length < 8) return null;
+    const raw = cols.map(c => c.trim().replace(/^"|"$/g, ''));
+    const dateStr   = raw[0];
+    // Extract code from "Airport Name (CODE)" format, fallback to raw value
+    function extractCode(cell) {
+        const m = cell.match(/\(([A-Za-z0-9]{2,6})\)/);
+        return m ? m[1].toUpperCase() : cell.toUpperCase().replace(/[^A-Z0-9]/g,'');
+    }
+    const dep = extractCode(raw[1]);
+    const arr = extractCode(raw[2]);
+    const schedDep  = raw[5];  // e.g. "08:00" or "08:00 UTC"
+    const schedArr  = raw[7];  // e.g. "10:30"
+
+    // Parse date → ISO yyyy-mm-dd
+    let isoDate = null;
+    const dmyMatch = dateStr.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
+    const isoMatch  = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+    const slashMatch = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (dmyMatch) {
+        const months = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+        const m = months[dmyMatch[2].toLowerCase().slice(0,3)];
+        if (m) isoDate = `${dmyMatch[3]}-${m}-${dmyMatch[1].padStart(2,'0')}`;
+    } else if (isoMatch) {
+        isoDate = `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+    } else if (slashMatch) {
+        isoDate = `${slashMatch[3]}-${slashMatch[2].padStart(2,'0')}-${slashMatch[1].padStart(2,'0')}`;
+    }
+
+    // Parse time → HH:MM
+    function parseTime(t) {
+        const m = t.match(/(\d{1,2}):(\d{2})/);
+        return m ? `${m[1].padStart(2,'0')}:${m[2]}` : null;
+    }
+    const depTime = parseTime(schedDep);
+    const arrTime = parseTime(schedArr);
+
+    if (!isoDate || !depTime || !arrTime || dep.length < 3 || arr.length < 3) return null;
+    return { date: isoDate, dep, arr, depTime, arrTime };
+}
+
+function previewPasteData(idx) {
+    const raw = document.getElementById(`pasteData${idx}`)?.value || '';
+    const preview = document.getElementById(`pastePreview${idx}`);
+    if (!preview) return;
+    const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean).filter((_,i)=>i%2===0);
+    if (!lines.length) { preview.innerHTML = ''; return; }
+    preview.innerHTML = lines.map(line => {
+        const row = parseFR24Row(line);
+        if (!row) return `<div class="paste-row"><span class="pr-err">✕ Could not parse:</span><span>${line.slice(0,60)}…</span></div>`;
+        const depOk = !!AIRPORTS[row.dep], arrOk = !!AIRPORTS[row.arr];
+        const depSpan = depOk ? `<span class="pr-ok">${row.dep}</span>` : `<span class="pr-warn">${row.dep}?</span>`;
+        const arrSpan = arrOk ? `<span class="pr-ok">${row.arr}</span>` : `<span class="pr-warn">${row.arr}?</span>`;
+        return `<div class="paste-row"><span>${row.date}</span>${depSpan}<span>→</span>${arrSpan}<span>${row.depTime}–${row.arrTime}</span></div>`;
+    }).join('');
+}
+
+function applyPaste() {
+    const count = parseInt(document.getElementById('acCount').value);
+    const data = [];
+    for (let i=0; i<count; i++) {
+        const reg  = document.getElementById(`pasteReg${i}`)?.value?.trim() || `Aircraft ${i+1}`;
+        const raw  = document.getElementById(`pasteData${i}`)?.value || '';
+        const legs = raw.split('\n').map(l=>l.trim()).filter(Boolean).filter((_,i)=>i%2===0)
+                        .map(parseFR24Row).filter(Boolean);
+        data.push({ reg, type: '', legs });
+    }
+    const errors = [];
+    data.forEach((mac, i) => {
+        if (!mac.legs.length) { errors.push(`Aircraft ${i+1}: no parseable rows found`); return; }
+        mac.legs.forEach((leg, j) => {
+            if (!AIRPORTS[leg.dep]) errors.push(`Aircraft ${i+1} leg ${j+1}: airport "${leg.dep}" not in database`);
+            if (!AIRPORTS[leg.arr]) errors.push(`Aircraft ${i+1} leg ${j+1}: airport "${leg.arr}" not in database`);
+        });
+    });
+    if (errors.length) { showToast(errors[0]); return; }
+    buildManualSlots(data);
+    renderSliders(); renderRouteInfo(); renderLegend(); updateSubtitle();
+}
+
+// Wire live preview on paste/input
+for (let i=0; i<3; i++) {
+    const ta = document.getElementById(`pasteData${i}`);
+    if (ta) ta.addEventListener('input', () => previewPasteData(i));
+}
+
+// ════════════════════════════════════════════════════════
+// US STATE HIGHLIGHTER
+// ════════════════════════════════════════════════════════
+const US_STATES = [
+    'Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut',
+    'Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa',
+    'Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan',
+    'Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada',
+    'New Hampshire','New Jersey','New Mexico','New York','North Carolina',
+    'North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island',
+    'South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont',
+    'Virginia','Washington','West Virginia','Wisconsin','Wyoming',
+];
+const stateLayerMap = {}, selectedStates = new Set();
+
+fetch('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json')
+    .then(r=>r.json())
+    .then(data => {
+        L.geoJSON(data, {
+            style: {fillOpacity:0,weight:0,opacity:0},
+            onEachFeature(f,l) { stateLayerMap[f.properties.name]=l; },
+        }).addTo(map);
+    });
+
+function pointInRing([lat,lng],ring) {
+    let inside=false;
+    for (let i=0,j=ring.length-1;i<ring.length;j=i++) {
+        const [xi,yi]=ring[i],[xj,yj]=ring[j];
+        if (((yi>lat)!==(yj>lat))&&(lng<(xj-xi)*(lat-yi)/(yj-yi)+xi)) inside=!inside;
+    }
+    return inside;
+}
+function planeInState(ll,layer) {
+    const g=layer.feature?.geometry; if (!g) return false;
+    const pt=[ll.lat,ll.lng];
+    if (g.type==='Polygon') return pointInRing(pt,g.coordinates[0]);
+    if (g.type==='MultiPolygon') return g.coordinates.some(p=>pointInRing(pt,p[0]));
+    return false;
+}
+function refreshStateColors() {
+    const positions = activeSlots.map(s=>s.marker.getLatLng());
+    selectedStates.forEach(name => {
+        const layer=stateLayerMap[name]; if (!layer) return;
+        const occupied=positions.some(pos=>planeInState(pos,layer));
+        layer.setStyle(occupied
+            ? {fillColor:'#00964A',fillOpacity:.2,color:'#00964A',weight:2,opacity:.9}
+            : {fillColor:'#0055DD',fillOpacity:.12,color:'#0055DD',weight:2,opacity:.8});
+    });
+}
+function applyHighlight(name,on) {
+    const layer=stateLayerMap[name]; if (!layer) return;
+    if (on) {
+        layer.setStyle({fillColor:'#0055DD',fillOpacity:.12,color:'#0055DD',weight:2,opacity:.8});
+        layer.bringToFront(); refreshStateColors();
+    } else {
+        layer.setStyle({fillOpacity:0,weight:0,opacity:0});
+    }
+}
+
+const checkboxList  = document.getElementById('stateCheckboxList');
+const tagsContainer = document.getElementById('selectedTags');
+US_STATES.forEach(state => {
+    const lbl = document.createElement('label');
+    lbl.dataset.state = state;
+    lbl.innerHTML = `<input type="checkbox" value="${state}"> ${state}`;
+    lbl.querySelector('input').addEventListener('change', function() {
+        if (this.checked) { selectedStates.add(state); applyHighlight(state,true); }
+        else { selectedStates.delete(state); applyHighlight(state,false); }
+        syncTags();
+    });
+    checkboxList.appendChild(lbl);
+});
+
+function syncTags() {
+    tagsContainer.innerHTML='';
+    selectedStates.forEach(name => {
+        const tag = document.createElement('span');
+        tag.className = 'state-tag';
+        tag.innerHTML = `${name}<button title="Remove">✕</button>`;
+        tag.querySelector('button').addEventListener('click',()=>{
+            selectedStates.delete(name); applyHighlight(name,false);
+            checkboxList.querySelector(`input[value="${name}"]`).checked=false;
+            syncTags();
+        });
+        tagsContainer.appendChild(tag);
+    });
+    document.getElementById('stateDropdownBtnText').textContent = selectedStates.size
+        ? `${selectedStates.size} state${selectedStates.size>1?'s':''} selected`
+        : 'Select states…';
+}
+
+const dropdownBtn   = document.getElementById('stateDropdownBtn');
+const dropdownPanel = document.getElementById('stateDropdownPanel');
+dropdownBtn.addEventListener('click', () => {
+    const open = dropdownPanel.classList.toggle('open');
+    dropdownBtn.classList.toggle('open', open);
+    if (open) document.getElementById('stateSearch').focus();
+});
+document.addEventListener('click', e => {
+    if (!document.getElementById('stateDropdown').contains(e.target)) {
+        dropdownPanel.classList.remove('open');
+        dropdownBtn.classList.remove('open');
+    }
+});
+document.getElementById('stateSearch').addEventListener('input', function() {
+    const q=this.value.toLowerCase();
+    checkboxList.querySelectorAll('label').forEach(l=>l.classList.toggle('hidden',!l.dataset.state.toLowerCase().includes(q)));
+});
+
+// ════════════════════════════════════════════════════════
+// PLAYBACK
+// ════════════════════════════════════════════════════════
+let playInterval = null;
+let isPlaying    = false;
+let playPosition = 0;
+
+function applyMasterVal(val) {
+    const master = document.getElementById('masterSlider');
+    if (!master) return;
+    master.value = val;
+    master.style.background = `linear-gradient(90deg,var(--accent) ${val}%,rgba(0,0,0,.1) ${val}%)`;
+    document.getElementById('masterStatus').textContent = val===0?'Start':val>=100?'Complete':`${Math.round(val)}% through period`;
+    activeSlots.forEach(slot => {
+        const el = document.getElementById(slot.sliderId);
+        if (el) { el.value = val; updateSlot(val, slot); }
+    });
+    const schMarker = document.getElementById('schMarker');
+    if (schMarker) schMarker.style.left = val + '%';
+}
+
+function advanceMaster(step) {
+    if (!document.getElementById('masterSlider')) { stopPlay(); return; }
+    playPosition += step;
+    if (playPosition >= 100) { playPosition = 100; applyMasterVal(100); stopPlay(); return; }
+    applyMasterVal(playPosition);
+}
+
+function getPlayStep() {
+    const sp = document.getElementById('speedSlider');
+    return sp ? parseFloat(sp.value) * 0.15 : 0.45;
+}
+
+function togglePlay() {
+    if (isPlaying) { stopPlay(); return; }
+    // Reset to start
+    playPosition = 0;
+    applyMasterVal(0);
+    isPlaying = true;
+    const btn  = document.getElementById('playBtn');
+    const icon = document.getElementById('playIcon');
+    if (btn)  btn.classList.add('playing');
+    if (icon) icon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+    playInterval = setInterval(() => advanceMaster(getPlayStep()), 50);
+}
+
+function stopPlay() {
+    if (!isPlaying && !playInterval) return;
+    clearInterval(playInterval);
+    playInterval = null;
+    isPlaying    = false;
+    const btn  = document.getElementById('playBtn');
+    const icon = document.getElementById('playIcon');
+    if (btn)  btn.classList.remove('playing');
+    if (icon) icon.innerHTML = '<polygon points="5,3 19,12 5,21"/>';
+}
+
+function onSpeedChange(val) {
+    document.getElementById('speedVal').textContent = val + '×';
+    const pct = ((val - 1) / 9 * 100).toFixed(1);
+    document.getElementById('speedSlider').style.background =
+        `linear-gradient(90deg,var(--accent) ${pct}%,rgba(0,0,0,.1) ${pct}%)`;
+}
+
+// ════════════════════════════════════════════════════════
+// INITIALISE
+// ════════════════════════════════════════════════════════
+// Build manual panels HTML
+buildManualPanels();
+
+// Wire reg input → tab label live update
+for (let i=0; i<3; i++) {
+    const el = document.getElementById(`macReg${i}`);
+    if (el) el.addEventListener('input', () => updateMacTabLabel(i));
+}
+
+// Start in manual mode, show manual panel
+setSource('manual');
+
+// Apply default manual schedule on load
+applyManual();
+</script>
+</body>
+</html>
